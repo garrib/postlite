@@ -9,6 +9,7 @@ DIST := frontend/dist
 build-dist:
 	@test -d frontend/node_modules || (cd frontend && npm ci --no-audit --no-fund)
 	cd frontend && npm run build
+	@touch frontend/dist/.gitkeep   # vite build 清空 outDir 会删占位符；go:embed 需要目录非空
 
 # 单二进制：前端产物经 go:embed 内嵌
 build: build-dist
