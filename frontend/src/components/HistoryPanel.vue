@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// 历史侧栏（Postman 风，design.md §4.3）：仅 方法+URL，按日分组（今天/昨天/M月D日），
-// 不展示状态码与响应预览；删除按钮 hover 出现。
+// 历史侧栏（Postman 风，design.md §4.3）：仅 方法+URL，钉选置顶 + 按日分组，
+// 不展示状态码与响应预览；星标/删除按钮 hover 出现（钉选星标常亮）。
 import { computed, ref } from 'vue'
 import type { HistoryRecord } from '../lib/types'
 
@@ -8,6 +8,7 @@ const props = defineProps<{ items: HistoryRecord[] }>()
 const emit = defineEmits<{
   (e: 'load', rec: HistoryRecord): void
   (e: 'delete', id: string): void
+  (e: 'pin', id: string): void
   (e: 'clear'): void
 }>()
 
@@ -21,7 +22,10 @@ const filtered = computed(() => {
   )
 })
 
-// 按日分组（items 已按 createdAt 降序，分组顺序即组内顺序）。
+// 列表顺序（后端已保证）：钉选在前 → 其余按日分组。
+const pinnedItems = computed(() => filtered.value.filter((r) => r.pinned))
+const restItems = computed(() => filtered.value.filter((r) => !r.pinned))
+
 interface DayGroup {
   label: string
   items: HistoryRecord[]
@@ -33,7 +37,7 @@ const groups = computed<DayGroup[]>(() => {
   const out: DayGroup[] = []
   let cur: DayGroup | null = null
   let curKey = ''
-  for (const r of filtered.value) {
+  for (const r of restItems.value) {
     const d = new Date(r.createdAt)
     const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
     const diffDays = Math.round((today - start) / day)
@@ -69,11 +73,25 @@ const groups = computed<DayGroup[]>(() => {
       </div>
     </div>
     <div class="history-list">
+      <template v-if="pinnedItems.length">
+        <div class="hg-label">⭐ 已钉选</div>
+        <div v-for="rec in pinnedItems" :key="rec.id" class="history-item" @click="emit('load', rec)">
+          <span class="m" :class="'m-' + rec.request.method.toLowerCase()">{{ rec.request.method }}</span>
+          <span class="u" :title="rec.request.url">{{ rec.request.url }}</span>
+          <button class="hd row-del ghost pin-on" title="取消钉选" @click.stop="emit('pin', rec.id)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+          </button>
+          <button class="hd row-del ghost" title="删除" @click.stop="emit('delete', rec.id)">✕</button>
+        </div>
+      </template>
       <template v-for="g in groups" :key="g.label">
         <div class="hg-label">{{ g.label }}</div>
         <div v-for="rec in g.items" :key="rec.id" class="history-item" @click="emit('load', rec)">
           <span class="m" :class="'m-' + rec.request.method.toLowerCase()">{{ rec.request.method }}</span>
           <span class="u" :title="rec.request.url">{{ rec.request.url }}</span>
+          <button class="hd row-del ghost pin-btn" title="钉选" @click.stop="emit('pin', rec.id)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+          </button>
           <button class="hd row-del ghost" title="删除" @click.stop="emit('delete', rec.id)">✕</button>
         </div>
       </template>

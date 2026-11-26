@@ -558,7 +558,7 @@ func TestExecute(t *testing.T) {
 			}
 			defer srv.Close()
 
-			resp, perr := Execute(tt.env(srv.URL))
+			resp, perr := Execute(tt.env(srv.URL), nil)
 			tt.check(t, resp, perr, cap)
 		})
 	}
@@ -573,7 +573,7 @@ func TestExecuteTLSInsecure(t *testing.T) {
 	defer srv.Close()
 
 	// 不开 insecure：TLS 校验失败 → 502。
-	_, perr := Execute(RequestEnvelope{Method: "GET", URL: srv.URL})
+	_, perr := Execute(RequestEnvelope{Method: "GET", URL: srv.URL}, nil)
 	if perr == nil || perr.HTTPStatus != 502 {
 		t.Fatalf("期望 502，得到 %v", perr)
 	}
@@ -583,7 +583,7 @@ func TestExecuteTLSInsecure(t *testing.T) {
 		Method:  "GET",
 		URL:     srv.URL,
 		Options: Options{InsecureSkipVerify: true},
-	})
+	}, nil)
 	if perr != nil {
 		t.Fatalf("perr: %v", perr)
 	}
@@ -612,7 +612,7 @@ func TestExecuteLimits(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			_, perr := Execute(tc.env)
+			_, perr := Execute(tc.env, nil)
 			if perr == nil || perr.HTTPStatus != 400 {
 				t.Fatalf("期望 400，得到 %v", perr)
 			}

@@ -58,6 +58,7 @@ type Options struct {
 	TimeoutMs          int  `json:"timeoutMs"`
 	FollowRedirects    bool `json:"followRedirects"`
 	InsecureSkipVerify bool `json:"insecureSkipVerify"`
+	DisableCookies     bool `json:"disableCookies,omitempty"` // v0.3.0：true=不携带/不写入全局 Cookie Jar
 }
 
 // RequestEnvelope POST /api/proxy 的请求体。Record 由 handler 层消费，proxy 不关心。
@@ -111,8 +112,8 @@ func errTimeout(format string, a ...any) *ExecError {
 }
 
 // Execute 构建并转发请求。上游 4xx/5xx 属成功路径（状态透传）；
-// 传输失败 502、超时 504、信封非法 400。
-func Execute(env RequestEnvelope) (Response, *ExecError) {
+// 传输失败 502、超时 504、信封非法 400。jar 非 nil 时启用 Cookie 自动管理。
+func Execute(env RequestEnvelope, jar http.CookieJar) (Response, *ExecError) {
 	if err := Validate(&env); err != nil {
 		return Response{}, err
 	}
@@ -122,7 +123,7 @@ func Execute(env RequestEnvelope) (Response, *ExecError) {
 		return Response{}, rerr
 	}
 
-	client := &http.Client{Timeout: InternalTimeout}
+	client := &http.Client{Timeout: InternalTimeout, Jar: jar}
 	if !env.Options.FollowRedirects {
 		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse // 停在首个 3xx，响应透传

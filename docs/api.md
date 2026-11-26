@@ -52,7 +52,8 @@
   "options": {                   // 可选，字段均可缺省
     "timeoutMs": 0,              // 0 = 不限（服务端硬顶 300000）
     "followRedirects": false,    // true = 跟随 3xx
-    "insecureSkipVerify": false  // true = 跳过 TLS 校验
+    "insecureSkipVerify": false, // true = 跳过 TLS 校验
+    "disableCookies": false      // true = 本次请求不携带/不写入全局 Cookie Jar（v0.3.0）
   },
   "record": true                 // 缺省 true；false = 本次发送不记历史
 }
@@ -119,7 +120,12 @@
 
 → `204`；id 不存在也返回 204（幂等）。
 
-### 3.3 `DELETE /api/history`
+### 3.3 `POST /api/history/:id/pin`
+
+切换钉选状态 → `200` `{ "pinned": true }`；id 不存在 → `404 invalid_request`。
+钉选条目豁免 7 天清理与数量淘汰，列表中置顶（详见数据实体文档 §3）。
+
+### 3.4 `DELETE /api/history`
 
 清空全部历史 → `204`。
 

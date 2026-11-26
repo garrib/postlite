@@ -25,6 +25,7 @@ describe('normalize（T5 历史回填归一化）', () => {
       timeoutMs: 0,
       followRedirects: false,
       insecureSkipVerify: false,
+      disableCookies: false,
     })
     expect(normalizeOptions({ timeoutMs: 500 } as any).timeoutMs).toBe(500)
   })

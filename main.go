@@ -12,14 +12,38 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/garrib/postlite/internal/config"
+	"github.com/garrib/postlite/internal/cookies"
 	"github.com/garrib/postlite/internal/history"
 	"github.com/garrib/postlite/internal/server"
 )
+
+// atomicWrite temp+rename 原子写（与 history 存储同策略，data.md §1）。
+func atomicWrite(path string, raw []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer os.Remove(name) //nolint:errcheck // rename 成功后 Remove 是 no-op
+	if err = tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err = tmp.Write(raw); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(name, path)
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -48,12 +72,23 @@ func run() error {
 		return err
 	}
 
+	// Cookie 自动管理（design.md §3.3b）：进程级 Jar + cookies.json 持久化
+	jar := cookies.New()
+	if raw, err := os.ReadFile(filepath.Join(cfg.DataDir, "cookies.json")); err == nil {
+		if err := jar.Load(raw); err != nil {
+			log.Printf("postlite: cookies.json 损坏，忽略（%v）", err)
+		}
+	}
+	persistCookies := func(raw []byte) error {
+		return atomicWrite(filepath.Join(cfg.DataDir, "cookies.json"), raw)
+	}
+
 	sub, err := fs.Sub(distFS, "frontend/dist")
 	if err != nil {
 		return err
 	}
 
-	srv := &http.Server{Handler: server.New(store, sub, config.Version)}
+	srv := &http.Server{Handler: server.New(store, sub, config.Version, jar, persistCookies)}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()
 

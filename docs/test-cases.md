@@ -62,6 +62,22 @@
 | H8 | 写入原子性 | save 后文件内容完整合法 JSON |
 | H9 | preview 截断 | 256KB 按 rune 边界、previewTruncated 标记 |
 | H10 | >1MB 文件字段 | 历史中占位、内容丢弃 |
+| H11 | TogglePin 幂等翻转 | 翻转 → 落盘；List 置顶（钉选按 createdAt 降序在前） |
+| H12 | 钉选豁免清理 | 超过 7 天的 pinned 条目保留，未钉选过期条目被清 |
+| H13 | 数量上限淘汰顺序 | 满员追加：先丢最旧未钉选；全钉选才丢最旧钉选 |
+
+### 3.4b Cookie Jar（cookies 包，C1-C6）
+
+| # | 用例 | 断言 |
+|---|---|---|
+| C1 | Set→Cookies 基本回放 | 同 host 请求携带 Cookie 头 |
+| C2 | 域匹配 | `.a.com` 通配 `x.a.com`；不误发 `b.com` |
+| C3 | 路径匹配 | `/api` Cookie 只发 `/api/*` |
+| C4 | Secure | 仅 https URL 发送 secure Cookie |
+| C5 | 过期过滤 | Expires 过去时 / Max-Age 到期不再发送；同（域,名,路径）覆盖 |
+| C6 | 持久化往返 | Marshal→Load 后 Cookies 一致；Clear 清空 |
+
+### 3.5 平台桥 platform.ts
 
 ### 3.3 TS curlParse（方言语料表，每行 = 输入 curl + 期望信封）
 

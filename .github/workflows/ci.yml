@@ -1,0 +1,29 @@
+name: CI
+# push/PR 跑 Go + 前端全量测试（发版另见 release.yml）
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Go test
+        run: go test ./...
+
+      - name: Frontend test
+        run: |
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm test

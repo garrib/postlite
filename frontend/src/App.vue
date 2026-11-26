@@ -5,7 +5,7 @@ import HistoryPanel from './components/HistoryPanel.vue'
 import KvEditor from './components/KvEditor.vue'
 import MethodSelect from './components/MethodSelect.vue'
 import ResponseView from './components/ResponseView.vue'
-import { ApiError, clearHistory, deleteHistory, listHistory, sendRequest } from './lib/api'
+import { ApiError, clearHistory, deleteHistory, listHistory, pinHistory, sendRequest } from './lib/api'
 import { toCurl } from './lib/curlExport'
 import { copyText, isNativeApp, onNativeRefreshHistory, onNativeSetOptions, postOptions } from './lib/platform'
 import { parseCurl } from './lib/curlParse'
@@ -167,6 +167,20 @@ async function onDeleteHistory(id: string) {
   }
 }
 
+// 钉选切换（v0.3.0）：乐观更新，失败回滚并提示。
+async function onPinHistory(id: string) {
+  const rec = history.value.find((r) => r.id === id)
+  if (!rec) return
+  const prev = rec.pinned
+  rec.pinned = !prev
+  try {
+    rec.pinned = await pinHistory(id)
+  } catch {
+    rec.pinned = prev
+    toast('钉选失败')
+  }
+}
+
 async function onClearHistory() {
   if (!window.confirm('清空全部历史（7 天内）？')) return
   try {
@@ -232,6 +246,14 @@ onMounted(() => {
               <input type="checkbox" v-model="env.options.insecureSkipVerify" />
               <span>跳过证书校验</span>
             </label>
+            <label class="settings-row" title="服务端全局 Cookie Jar，跨请求保持登录态（cookies.json 持久化）">
+              <input
+                type="checkbox"
+                :checked="!env.options.disableCookies"
+                @change="env.options.disableCookies = !($event.target as HTMLInputElement).checked"
+              />
+              <span>自动管理 Cookie</span>
+            </label>
             <div class="settings-row settings-timeout">
               <span>超时 ms</span>
               <input type="number" min="0" max="300000" step="100" v-model.number="env.options.timeoutMs" />
@@ -285,6 +307,7 @@ onMounted(() => {
         :items="history"
         @load="loadHistory"
         @delete="onDeleteHistory"
+        @pin="onPinHistory"
         @clear="onClearHistory"
       />
 

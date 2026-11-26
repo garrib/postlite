@@ -50,6 +50,13 @@ export async function deleteHistory(id: string): Promise<void> {
   if (resp.status !== 204) throw new ApiError('internal_error', `删除失败 HTTP ${resp.status}`, resp.status)
 }
 
+export async function pinHistory(id: string): Promise<boolean> {
+  const resp = await fetch(`/api/history/${encodeURIComponent(id)}/pin`, { method: 'POST' })
+  if (!resp.ok) throw new ApiError('invalid_request', `钉选失败 HTTP ${resp.status}`, resp.status)
+  const body = await resp.json()
+  return body.pinned as boolean
+}
+
 export async function clearHistory(): Promise<void> {
   const resp = await fetch('/api/history', { method: 'DELETE' })
   if (resp.status !== 204) throw new ApiError('internal_error', `清空失败 HTTP ${resp.status}`, resp.status)

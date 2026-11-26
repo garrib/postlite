@@ -31,7 +31,7 @@ describe('toCurl（T4 round-trip）', () => {
   it('options 导出：-k -L --max-time', () => {
     const env = emptyRequest()
     env.url = 'http://a.b/c'
-    env.options = { timeoutMs: 3500, followRedirects: true, insecureSkipVerify: true }
+    env.options = { timeoutMs: 3500, followRedirects: true, insecureSkipVerify: true, disableCookies: false }
     const cmd = toCurl(env)
     expect(cmd).toContain('-L')
     expect(cmd).toContain('-k')

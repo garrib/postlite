@@ -6,18 +6,22 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 
+	"github.com/garrib/postlite/internal/cookies"
 	"github.com/garrib/postlite/internal/history"
 	"github.com/garrib/postlite/internal/proxy"
 )
 
 func newTestServer(t *testing.T, files map[string]string) (http.Handler, *history.Store) {
 	t.Helper()
-	store, err := history.Open(t.TempDir())
+	dir := t.TempDir()
+	store, err := history.Open(dir)
 	if err != nil {
 		t.Fatalf("history.Open: %v", err)
 	}
@@ -25,7 +29,11 @@ func newTestServer(t *testing.T, files map[string]string) (http.Handler, *histor
 	for k, v := range files {
 		dist[k] = &fstest.MapFile{Data: []byte(v)}
 	}
-	return New(store, dist, "test"), store
+	jar := cookies.New()
+	persist := func(raw []byte) error {
+		return os.WriteFile(filepath.Join(dir, "cookies.json"), raw, 0o600)
+	}
+	return New(store, dist, "test", jar, persist), store
 }
 
 // TestIntegrationFlow 发送 → 落历史 → 列表 → 删除 → 清空 闭环（docs/test-cases.md §1 集成）。

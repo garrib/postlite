@@ -36,6 +36,7 @@ export interface Options {
   timeoutMs: number // 0 = 不限
   followRedirects: boolean
   insecureSkipVerify: boolean
+  disableCookies: boolean // true = 本次请求不携带/不写入全局 Cookie Jar（v0.3.0）
 }
 
 export interface RequestEnvelope {
@@ -80,6 +81,7 @@ export interface HistoryResponseSummary {
 export interface HistoryRecord {
   id: string
   createdAt: number
+  pinned?: boolean // v0.3.0 钉选豁免清理与淘汰，列表置顶
   request: RequestEnvelope
   response?: HistoryResponseSummary
   error?: string
@@ -101,5 +103,11 @@ export function emptyBody(): Body {
 }
 
 export function emptyRequest(): RequestEnvelope {
-  return { method: 'GET', url: '', headers: [], body: emptyBody(), options: { timeoutMs: 0, followRedirects: false, insecureSkipVerify: false } }
+  return {
+    method: 'GET',
+    url: '',
+    headers: [],
+    body: emptyBody(),
+    options: { timeoutMs: 0, followRedirects: false, insecureSkipVerify: false, disableCookies: false },
+  }
 }

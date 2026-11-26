@@ -43,6 +43,7 @@ type ResponseSummary struct {
 type Record struct {
 	ID        string                `json:"id"`
 	CreatedAt int64                 `json:"createdAt"`
+	Pinned    bool                  `json:"pinned,omitempty"` // v0.3.0：钉选豁免清理与淘汰，列表置顶
 	Request   proxy.RequestEnvelope `json:"request"`
 	Response  *ResponseSummary      `json:"response,omitempty"`
 	Error     string                `json:"error,omitempty"`
@@ -127,19 +128,30 @@ func NewRecord(now time.Time, req proxy.RequestEnvelope, resp *proxy.Response, e
 	return rec
 }
 
-// Append 追加一条历史（先清理再落盘，Append 自身生成 id/createdAt 由调用方通过 NewRecord 提供）。
+// Append 追加一条历史（先清理再落盘）。数量上限淘汰顺序：最旧未钉选优先，
+// 全部钉选才动最旧钉选（data.md §3）。
 func (s *Store) Append(rec Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pruneLocked()
 	s.items = append(s.items, rec)
-	if excess := len(s.items) - maxItems; excess > 0 {
-		s.items = s.items[excess:]
+	for excess := len(s.items) - maxItems; excess > 0; excess-- {
+		drop := -1
+		for i := range s.items { // 先找最旧未钉选
+			if !s.items[i].Pinned {
+				drop = i
+				break
+			}
+		}
+		if drop < 0 {
+			drop = 0 // 全钉选：丢最旧
+		}
+		s.items = append(s.items[:drop], s.items[drop+1:]...)
 	}
 	return s.saveLocked()
 }
 
-// List 返回降序副本。
+// List 返回降序副本；钉选条目置顶（docs/data.md §2/§3）。
 func (s *Store) List() []Record {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -148,7 +160,22 @@ func (s *Store) List() []Record {
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
+	// 稳定排序：钉选在前，各自组内保持 createdAt 降序
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Pinned && !out[j].Pinned })
 	return out
+}
+
+// TogglePin 翻转钉选状态并落盘，返回新状态；不存在报错（api.md §3.3）。
+func (s *Store) TogglePin(id string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.items {
+		if s.items[i].ID == id {
+			s.items[i].Pinned = !s.items[i].Pinned
+			return s.items[i].Pinned, s.saveLocked()
+		}
+	}
+	return false, fmt.Errorf("id 不存在: %s", id)
 }
 
 // Delete 删除一条（幂等：不存在也成功）。
@@ -172,15 +199,20 @@ func (s *Store) Clear() error {
 	return s.saveLocked()
 }
 
-// pruneLocked 惰性清理：只丢 7 天前的最老条目（越界即停，不重排未过期数据）。
+// pruneLocked 惰性清理：丢弃超 7 天的「未钉选」条目（pinned 豁免，data.md §3）。
 func (s *Store) pruneLocked() {
 	cutoff := s.now().Add(-retention).UnixMilli()
-	drop := 0
-	for drop < len(s.items) && s.items[drop].CreatedAt < cutoff {
-		drop++
+	kept := s.items[:0]
+	changed := false
+	for _, r := range s.items {
+		if !r.Pinned && r.CreatedAt < cutoff {
+			changed = true
+			continue
+		}
+		kept = append(kept, r)
 	}
-	if drop > 0 {
-		s.items = s.items[drop:]
+	if changed {
+		s.items = kept
 	}
 }
 

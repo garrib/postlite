@@ -500,9 +500,11 @@ label.settings-row:hover { background: var(--panel); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.history-item .hd { opacity: 0; color: #9aa1ab; background: transparent; border: none; padding: 0 4px; font-size: 11px; flex: none; }
+.history-item .hd { opacity: 0; color: #9aa1ab; background: transparent; border: none; padding: 0 3px; font-size: 11px; flex: none; display: inline-flex; align-items: center; }
 .history-item:hover .hd { opacity: 1; }
 .history-item .hd:hover { color: var(--danger); }
+.history-item .hd.pin-btn:hover { color: var(--accent); }
+.history-item .hd.pin-on { opacity: 1; color: #f0a93f; }
 
 /* 历史方法配色 */
 .history-item .m.m-get { color: var(--m-get); }

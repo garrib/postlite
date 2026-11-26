@@ -56,6 +56,7 @@ export interface SendOptions {
   followRedirects: boolean
   insecureSkipVerify: boolean
   timeoutMs: number
+  disableCookies: boolean
 }
 
 /** Web → 原生：选项变更时推给原生面板。 */

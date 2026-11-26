@@ -19,6 +19,7 @@ export function normalizeOptions(raw: Partial<Options> | undefined): Options {
     timeoutMs: raw?.timeoutMs ?? 0,
     followRedirects: raw?.followRedirects ?? false,
     insecureSkipVerify: raw?.insecureSkipVerify ?? false,
+    disableCookies: raw?.disableCookies ?? false,
   }
 }
 

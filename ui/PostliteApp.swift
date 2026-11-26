@@ -19,11 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var optFollow = false
     private var optInsecure = false
     private var optTimeoutMs = 0
+    private var optDisableCookies = false
 
     // —— 原生设置面板 ——
     private var settingsWindow: NSWindow?
     private var followCheck: NSButton?
     private var insecureCheck: NSButton?
+    private var cookiesCheck: NSButton?
     private var timeoutField: NSTextField?
 
     static func main() {
@@ -132,8 +134,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         w.title = "Postlite"
         w.minSize = NSSize(width: 960, height: 620)
         w.contentView = content
-        w.center()
+        restoreWindowFrame(w)
         w.makeKeyAndOrderFront(nil)
+        observeWindowFrame(w)
         window = w
         webView = wb
         wb.load(URLRequest(url: url))
@@ -170,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             if let f = body["followRedirects"] as? Bool { optFollow = f }
             if let i = body["insecureSkipVerify"] as? Bool { optInsecure = i }
             if let t = body["timeoutMs"] as? NSNumber { optTimeoutMs = t.intValue }
+            if let dc = body["disableCookies"] as? Bool { optDisableCookies = dc }
             syncSettingsControls()
         default:
             break
@@ -200,6 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private func buildSettingsWindow() {
         let follow = NSButton(checkboxWithTitle: "跟随重定向（curl -L）", target: self, action: #selector(settingChanged))
         let insecure = NSButton(checkboxWithTitle: "跳过证书校验（curl -k）", target: self, action: #selector(settingChanged))
+        let cookies = NSButton(checkboxWithTitle: "自动管理 Cookie（跨请求保持登录态）", target: self, action: #selector(settingChanged))
 
         let timeoutLabel = NSTextField(labelWithString: "超时 ms")
         timeoutLabel.alignment = .right
@@ -226,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         let clearBtn = NSButton(title: "清空历史记录…", target: self, action: #selector(clearHistoryRequested))
 
-        let stack = NSStackView(views: [follow, insecure, timeoutRow, timeoutHint, hint, sep, clearBtn])
+        let stack = NSStackView(views: [follow, insecure, cookies, timeoutRow, timeoutHint, hint, sep, clearBtn])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
@@ -235,7 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         sep.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36).isActive = true
 
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 230),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 260),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -246,19 +251,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         settingsWindow = w
         followCheck = follow
         insecureCheck = insecure
+        cookiesCheck = cookies
         timeoutField = field
     }
 
     @objc private func settingChanged() {
         optFollow = followCheck?.state == .on
         optInsecure = insecureCheck?.state == .on
+        optDisableCookies = cookiesCheck?.state != .on // 面板未勾选 = 关闭 Cookie 管理
         optTimeoutMs = Int(timeoutField?.stringValue ?? "") ?? 0
         pushOptionsToWeb()
     }
 
     /// 原生 → Web：面板变更推给 Web UI（window.__postliteSetOptions）。
     private func pushOptionsToWeb() {
-        let js = "window.__postliteSetOptions&&window.__postliteSetOptions({followRedirects:\(optFollow),insecureSkipVerify:\(optInsecure),timeoutMs:\(optTimeoutMs)})"
+        let js = "window.__postliteSetOptions&&window.__postliteSetOptions({followRedirects:\(optFollow),insecureSkipVerify:\(optInsecure),timeoutMs:\(optTimeoutMs),disableCookies:\(optDisableCookies)})"
         webView?.evaluateJavaScript(js, completionHandler: nil)
     }
 
@@ -267,8 +274,93 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         guard let w = settingsWindow, w.isVisible else { return }
         followCheck?.state = optFollow ? .on : .off
         insecureCheck?.state = optInsecure ? .on : .off
+        cookiesCheck?.state = optDisableCookies ? .off : .on // 面板勾选 = 自动管理（disableCookies 取反）
         if timeoutField?.currentEditor() == nil { // 用户正在输入时不打断
             timeoutField?.stringValue = optTimeoutMs > 0 ? String(optTimeoutMs) : ""
+        }
+    }
+
+    // MARK: - 检查更新（GitHub Releases 最新 tag 比对，design.md §2.1）
+
+    @objc private func checkForUpdates() {
+        let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+        let api = URL(string: "https://api.github.com/repos/garrib/postlite/releases/latest")!
+        var req = URLRequest(url: api)
+        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            DispatchQueue.main.async {
+                var latest = ""
+                var page = "https://github.com/garrib/postlite/releases/latest"
+                if let data, let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                    latest = obj["tag_name"] as? String ?? ""
+                    if let u = obj["html_url"] as? String { page = u }
+                }
+                if latest.isEmpty {
+                    self?.simpleAlert("检查更新失败", "无法连接 GitHub，请稍后再试。")
+                } else if Self.isNewer(latest, than: current) {
+                    let a = NSAlert()
+                    a.messageText = "发现新版本 \(latest)"
+                    a.informativeText = "当前版本 v\(current)，是否前往下载页？"
+                    a.addButton(withTitle: "前往下载")
+                    a.addButton(withTitle: "以后再说")
+                    if a.runModal() == .alertFirstButtonReturn, let url = URL(string: page) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } else {
+                    self?.simpleAlert("已是最新版本", "当前版本 v\(current)。")
+                }
+            }
+        }.resume()
+    }
+
+    private func simpleAlert(_ title: String, _ detail: String) {
+        let a = NSAlert()
+        a.messageText = title
+        a.informativeText = detail
+        a.runModal()
+    }
+
+    /// 语义化版本比较（忽略前导 v）：latest > current 返回 true。
+    static func isNewer(_ latest: String, than current: String) -> Bool {
+        func parts(_ s: String) -> [Int] {
+            s.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+                .split(separator: ".").map { Int($0) ?? 0 }
+        }
+        let l = parts(latest), c = parts(current)
+        for i in 0..<max(l.count, c.count) {
+            let li = i < l.count ? l[i] : 0
+            let ci = i < c.count ? c[i] : 0
+            if li != ci { return li > ci }
+        }
+        return false
+    }
+
+    // MARK: - 窗口状态记忆（design.md §2.1：位置与尺寸跨启动恢复，异常回退居中）
+
+    private static let windowFrameKey = "mainWindowFrame"
+
+    private func restoreWindowFrame(_ w: NSWindow) {
+        guard let s = UserDefaults.standard.string(forKey: Self.windowFrameKey) else {
+            w.center()
+            return
+        }
+        let p = s.split(separator: ",").compactMap { Double($0) }
+        guard p.count == 4, p[2] > 400, p[3] > 300 else { w.center(); return }
+        let frame = NSRect(x: p[0], y: p[1], width: p[2], height: p[3])
+        if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
+            w.setFrame(frame, display: true)
+            return
+        }
+        w.center()
+    }
+
+    private func observeWindowFrame(_ w: NSWindow) {
+        let save: () -> Void = { [weak self] in
+            guard let f = self?.window?.frame, !w.styleMask.contains(.fullScreen) else { return }
+            UserDefaults.standard.set("\(f.origin.x),\(f.origin.y),\(f.size.width),\(f.size.height)", forKey: Self.windowFrameKey)
+        }
+        for name in [NSWindow.didMoveNotification, NSWindow.didEndLiveResizeNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { _ in save() }
         }
     }
 
@@ -316,6 +408,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let settings = NSMenuItem(title: "设置…", action: #selector(showSettings), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
+        let updates = NSMenuItem(title: "检查更新…", action: #selector(checkForUpdates), keyEquivalent: "")
+        updates.target = self
+        appMenu.addItem(updates)
         appMenu.addItem(.separator())
         let quit = NSMenuItem(title: "退出 Postlite", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenu.addItem(quit)

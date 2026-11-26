@@ -1,0 +1,65 @@
+name: Release
+# push tag（v*）→ macOS runner 构建 universal DMG → 自动创建 Release 并上传（design.md §2.1）
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PROXY: '' # runner 直连 PyPI；Makefile 里 PROXY ?= 会尊重已定义的环境变量
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build universal DMG
+        run: make release
+
+      - name: Generate release notes
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          SHA=$(shasum -a 256 "dist/Postlite-${TAG}-macos-universal.dmg" | awk '{print $1}')
+          cat > notes.md <<EOF
+          Postlite ${GITHUB_REF_NAME}
+
+          本机轻量 HTTP 调试工具：粘贴 cURL 即发、表单化编辑、Postman 风历史。macOS 原生窗口，免登录。
+
+          ## 下载
+
+          **一键安装（不触发 Gatekeeper）：**
+
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/garrib/postlite/main/scripts/install.sh | sh
+          \`\`\`
+
+          **或手动下载：** \`Postlite-${TAG}-macos-universal.dmg\`（arm64 + Intel），打开拖入 Applications。
+          ad-hoc 签名：首启若 Gatekeeper 拦截，右键 → 打开。
+
+          SHA256: \`$SHA\`
+
+          ---
+          *A tiny native macOS HTTP client — paste cURL, send, done. Universal (arm64 + Intel), no login, zero Go dependencies.*
+          EOF
+
+      - name: Create release (idempotent)
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "Postlite $GITHUB_REF_NAME" --notes-file notes.md dist/*.dmg dist/*SHA256.txt \
+            || gh release upload "$GITHUB_REF_NAME" --clobber dist/*.dmg dist/*SHA256.txt

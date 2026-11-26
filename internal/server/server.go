@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/garrib/postlite/internal/cookies"
 	"github.com/garrib/postlite/internal/history"
 	"github.com/garrib/postlite/internal/proxy"
 )
@@ -27,17 +28,22 @@ const unbuiltHTML = `<!doctype html>
 </div></body></html>`
 
 type Server struct {
-	hist    *history.Store
-	dist    fs.FS
-	version string
+	hist           *history.Store
+	dist           fs.FS
+	version        string
+	jar            *cookies.Jar
+	persistCookies func([]byte) error
 }
 
 // New 组装全部路由。dist 为前端产物目录（index.html 可缺，缺则回退内置提示页）。
-func New(hist *history.Store, dist fs.FS, version string) http.Handler {
-	s := &Server{hist: hist, dist: dist, version: version}
+// jar 非 nil 时启用 Cookie 自动管理（docs/design.md §3.3b）。
+// persistCookies 为 Jar 持久化回调（写到 dataDir/cookies.json），可为 nil（不持久化）。
+func New(hist *history.Store, dist fs.FS, version string, jar *cookies.Jar, persistCookies func([]byte) error) http.Handler {
+	s := &Server{hist: hist, dist: dist, version: version, jar: jar, persistCookies: persistCookies}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/proxy", s.handleProxy)
 	mux.HandleFunc("GET /api/history", s.handleHistoryList)
+	mux.HandleFunc("POST /api/history/{id}/pin", s.handleHistoryPin)
 	mux.HandleFunc("DELETE /api/history/{id}", s.handleHistoryDelete)
 	mux.HandleFunc("DELETE /api/history", s.handleHistoryClear)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
@@ -53,7 +59,12 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, perr := proxy.Execute(env)
+	// Cookie 自动管理：默认开启；options.disableCookies=true 本次不携带/不写入
+	var jar http.CookieJar
+	if !env.Options.DisableCookies {
+		jar = s.jar
+	}
+	resp, perr := proxy.Execute(env, jar)
 	if perr != nil {
 		// 传输级失败（502/504）落历史（data.md §2 error 字段）；400 属请求构造错误，不落。
 		if env.ShouldRecord() && perr.HTTPStatus != http.StatusBadRequest {
@@ -66,7 +77,33 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	if env.ShouldRecord() {
 		s.recordHistory(env, &resp, "")
 	}
+	s.saveCookies()
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// handleHistoryPin 切换钉选状态（api.md §3.3）。
+func (s *Server) handleHistoryPin(w http.ResponseWriter, r *http.Request) {
+	pinned, err := s.hist.TogglePin(r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "invalid_request", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"pinned": pinned})
+}
+
+// saveCookies Jar 变更后持久化（失败仅告警，不阻塞响应——data.md §4 同策略）。
+func (s *Server) saveCookies() {
+	if s.jar == nil {
+		return
+	}
+	raw, err := s.jar.Marshal()
+	if err != nil {
+		log.Printf("postlite: cookie 序列化失败: %v", err)
+		return
+	}
+	if err := s.persistCookies(raw); err != nil {
+		log.Printf("postlite: cookie 落盘失败: %v", err)
+	}
 }
 
 func (s *Server) recordHistory(env proxy.RequestEnvelope, resp *proxy.Response, sendErr string) {
