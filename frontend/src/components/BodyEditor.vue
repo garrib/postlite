@@ -81,6 +81,12 @@ async function pickFile(i: number, ev: Event) {
   if (!file) return
   const b64 = await fileToBase64(file)
   setField(i, { contentBase64: b64, fileName: file.name, contentType: file.type || '' })
+  ;(ev.target as HTMLInputElement).value = '' // 允许重复选择同一文件
+}
+
+// 清除文件内容（保留 file 类型的行）：回填时提示重新选择文件的场景。
+function clearFile(i: number) {
+  setField(i, { contentBase64: '', fileName: '', contentType: '' })
 }
 
 // binary body：单文件，存到 text（base64），fileName 不落信封（发送端只见 base64）。
@@ -140,41 +146,42 @@ function fieldSizeLabel(f: BodyField): string {
       </template>
 
       <template v-else-if="body.type === 'form-data'">
-        <table class="kv-table">
-          <tbody>
-            <tr v-for="(f, i) in formFields" :key="i">
-              <td style="width: 22px">
-                <input type="checkbox" :checked="f.enabled" @change="setField(i, { enabled: !f.enabled })" />
-              </td>
-              <td style="width: 20%">
-                <input type="text" :value="f.name" placeholder="字段名" @input="setField(i, { name: ($event.target as HTMLInputElement).value })" />
-              </td>
-              <td style="width: 70px">
-                <select :value="f.type" @change="setField(i, { type: ($event.target as HTMLSelectElement).value as 'text' | 'file' })">
-                  <option value="text">文本</option>
-                  <option value="file">文件</option>
-                </select>
-              </td>
-              <td>
-                <template v-if="f.type === 'file'">
-                  <div class="file-field" style="display: flex; gap: 6px; align-items: center">
-                    <input type="file" @change="pickFile(i, $event)" />
-                    <span v-if="f.fileName" class="mono" style="font-size: 11px">{{ f.fileName }} {{ fieldSizeLabel(f) }}</span>
-                  </div>
-                </template>
-                <template v-else>
-                  <input type="text" :value="f.value" placeholder="值" @input="setField(i, { value: ($event.target as HTMLInputElement).value })" />
-                </template>
-              </td>
-              <td style="width: 30px">
-                <button class="row-del" @click="removeField(i)">✕</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div style="display: flex; gap: 6px; margin-top: 6px">
-          <button class="ghost" @click="addField('text')">+ 文本字段</button>
-          <button class="ghost" @click="addField('file')">+ 文件字段</button>
+        <div class="fd-rows">
+          <div v-for="(f, i) in formFields" :key="i" class="fd-row" :class="{ disabled: !f.enabled }">
+            <input type="checkbox" :checked="f.enabled" title="启用/禁用此字段" @change="setField(i, { enabled: !f.enabled })" />
+            <input class="fd-name" type="text" :value="f.name" placeholder="字段名" @input="setField(i, { name: ($event.target as HTMLInputElement).value })" />
+            <select class="fd-type" :value="f.type" @change="setField(i, { type: ($event.target as HTMLSelectElement).value as 'text' | 'file' })">
+              <option value="text">文本</option>
+              <option value="file">文件</option>
+            </select>
+            <div class="fd-value">
+              <template v-if="f.type === 'file'">
+                <label v-if="!f.contentBase64" class="fd-file-btn">
+                  选择文件
+                  <input type="file" hidden @change="pickFile(i, $event)" />
+                </label>
+                <div v-else class="fd-file-chip">
+                  <span class="fd-file-icon">📄</span>
+                  <span class="fd-file-name" :title="f.fileName">{{ f.fileName }}</span>
+                  <span class="fd-file-size mono">{{ fieldSizeLabel(f) }}</span>
+                  <label class="fd-file-btn small">
+                    换
+                    <input type="file" hidden @change="pickFile(i, $event)" />
+                  </label>
+                  <button class="row-del" title="清除文件内容" @click="clearFile(i)">✕</button>
+                </div>
+              </template>
+              <template v-else>
+                <input type="text" :value="f.value" placeholder="值" @input="setField(i, { value: ($event.target as HTMLInputElement).value })" />
+              </template>
+            </div>
+            <button class="row-del fd-del" title="删除此字段" @click="removeField(i)">✕</button>
+          </div>
+          <div v-if="formFields.length === 0" class="fd-empty">暂无字段——用下方按钮添加</div>
+        </div>
+        <div class="fd-actions">
+          <button class="ghost" @click="addField('text')">＋ 文本字段</button>
+          <button class="ghost" @click="addField('file')">＋ 文件字段</button>
         </div>
       </template>
 

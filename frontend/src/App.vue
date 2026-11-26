@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import BodyEditor from './components/BodyEditor.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
 import KvEditor from './components/KvEditor.vue'
+import MethodSelect from './components/MethodSelect.vue'
 import ResponseView from './components/ResponseView.vue'
 import { ApiError, clearHistory, deleteHistory, listHistory, sendRequest } from './lib/api'
 import { toCurl } from './lib/curlExport'
 import { copyText } from './lib/platform'
 import { parseCurl } from './lib/curlParse'
 import { buildUrl, parseUrl, type ParamRow } from './lib/params'
+import { useClickOutside } from './lib/useClickOutside'
 import {
   emptyRequest,
   type ApiResponse,
@@ -24,10 +26,14 @@ const paramRows = ref<ParamRow[]>([])
 const paramBase = ref('')
 const paramHash = ref('')
 
-const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 const sending = ref(false)
 const resp = ref<ApiResponse | null>(null)
 const sendError = ref('')
+
+// 左上角「设置」下拉：发送选项收于此处（design.md §4.3）。
+const settingsOpen = ref(false)
+const settingsRoot = ref<HTMLElement | null>(null)
+useClickOutside(settingsRoot, () => (settingsOpen.value = false))
 
 const tab = ref<'params' | 'headers' | 'body'>('body')
 
@@ -184,25 +190,41 @@ onMounted(() => {
 <template>
   <div class="app-shell" @keydown="onKeySend">
     <div class="topbar">
-      <div class="logo">Post<span>lite</span></div>
-      <div class="spacer"></div>
-      <div class="options-bar">
-        <label title="跟随 3xx 重定向（curl -L）">
-          <input type="checkbox" v-model="env.options.followRedirects" /> 跟随重定向
-        </label>
-        <label title="跳过 TLS 证书校验（curl -k）">
-          <input type="checkbox" v-model="env.options.insecureSkipVerify" /> 跳过证书校验
-        </label>
-        <label title="0 = 不限（服务端硬顶 300s）">
-          超时 ms <input type="number" min="0" max="300000" v-model.number="env.options.timeoutMs" />
-        </label>
+      <div class="topbar-left">
+        <div ref="settingsRoot" class="settings-root">
+          <button type="button" class="ghost settings-btn" @click="settingsOpen = !settingsOpen">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span>设置</span>
+            <span class="caret" :class="{ open: settingsOpen }">▾</span>
+          </button>
+          <div v-if="settingsOpen" class="settings-menu">
+            <div class="settings-title">发送选项</div>
+            <label class="settings-row" title="跟随 3xx 重定向（curl -L）">
+              <input type="checkbox" v-model="env.options.followRedirects" />
+              <span>跟随重定向</span>
+            </label>
+            <label class="settings-row" title="跳过 TLS 证书校验（curl -k）">
+              <input type="checkbox" v-model="env.options.insecureSkipVerify" />
+              <span>跳过证书校验</span>
+            </label>
+            <div class="settings-row settings-timeout">
+              <span>超时 ms</span>
+              <input type="number" min="0" max="300000" step="100" v-model.number="env.options.timeoutMs" />
+            </div>
+            <div class="settings-hint">超时 0 = 不限（服务端硬顶 300s）</div>
+          </div>
+        </div>
+        <div class="logo"><span class="brand-post">Post</span><span class="brand-lite">lite</span></div>
       </div>
+      <div class="spacer"></div>
+      <div class="version-tag mono">v0.2.1</div>
     </div>
 
     <div class="url-bar">
-      <select v-model="env.method" class="method-select" :class="'msel-' + env.method.toLowerCase()">
-        <option v-for="m in METHODS" :key="m" :value="m">{{ m }}</option>
-      </select>
+      <MethodSelect v-model="env.method" />
       <input
         class="url"
         v-model="env.url"

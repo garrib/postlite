@@ -100,8 +100,12 @@ done/error ──再次send──▶ sending（响应区切回 loading）
 ### 4.3 UI 风格（浅色 · Postman 风）
 
 - 整体浅色：白底主区、`#FAFBFC` 侧栏、`#E4E6EA` 分隔线、`#21252B` 主文本、`#6B7280` 次级文本。
-- 强调色 Postman 橙 `#FF6C37`：Send 按钮、Tab 激活下划线、输入框 focus ring、logo。
+- 品牌主色深松绿 `#112A25`（即 `color(srgb 0.0658 0.1631 0.1447)`）：Send 按钮、Tab 激活下划线、输入框 focus ring、checkbox、logo 的「lite」。
+- 品牌字标：Postlite —— Post 700 加粗（主文本色）、lite 300 细体（主色）。
 - 方法配色：GET `#00A67D` · POST `#E8930C` · PUT `#2D8CFF` · PATCH `#8E5CE6` · DELETE `#EF4444` · 其他 `#6B7280`（历史列表、方法下拉同步着色）。
+- 方法选择器为自绘下拉组件：按钮态 = 方法色粗体文本 + caret；展开列表逐项方法色 + 当前项勾选；点击外部/Esc 关闭。
+- 发送选项（跟随重定向 / 跳过证书校验 / 超时 ms）收进**左上角「设置」下拉菜单**，顶栏右侧不再常驻。
+- form-data 编辑行为栅格行：启用框 / 字段名 / 类型（文本|文件）/ 值区 / 删除；文件字段选中后显示「图标 + 文件名 + 大小」chip，可「换」重选、可 ✕ 清除内容；底部「＋ 文本字段 / ＋ 文件字段」。
 - 布局仿 Postman：左侧历史侧栏（280px，检索/回填）→ 中栏上请求区（URL 栏在顶 + Params/Headers/Body Tab，Body 类型为分段式胶囊）→ 下响应区（状态行 + Body/Headers Tab）；Toast 用深色浮层做对比。
 - 原生桥（仅 .app 内生效）：`window.webkit.messageHandlers.postlite`；消息 `{name:'download', filename, base64}` → NSSavePanel 原生保存；浏览器形态回退 `<a download>`；剪贴板在 navigator.clipboard 失败时 execCommand 兜底。
 - 应用图标：macOS Big Sur 风格 squircle（透明画布 10% 边距、圆角 22.37%），Postman 橙渐变底 + 白色纸飞机；`scripts/make-icon.swift` 生成 iconset 后 `iconutil` 转 icns。

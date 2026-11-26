@@ -5,7 +5,7 @@
 ## 特性
 
 - **原生 Mac 应用**：`make app` 产出 `Postlite.app`——独立窗口（WKWebView 壳）、Dock 图标、原生菜单（⌘Q/⌘C/⌘V）、响应体下载走系统保存面板；不是「打开浏览器的网页」
-- **浅色 Postman 风**：白底 + Postman 橙 `#FF6C37`，方法配色（GET 绿 / POST 黄 / PUT 蓝 / PATCH 紫 / DELETE 红），左侧历史侧栏 + 上请求下响应
+- **浅色 Postman 风**：白底 + 品牌深松绿 `#112A25`，方法配色（GET 绿 / POST 黄 / PUT 蓝 / PATCH 紫 / DELETE 红），左侧历史侧栏 + 上请求下响应，发送选项收在左上角「设置」菜单
 - **粘贴 cURL 即发**：兼容 macOS Chrome「Copy as cURL」、bash/zsh 续行、Windows cmd `^`、PowerShell 反引号；解析不了的旗标进警告，绝不整体失败
 - **表单化编辑**：方法 / URL / Query 参数 / Headers / Body（`none` · `json` · `x-www-form-urlencoded` · `form-data` · `raw` · `binary`）
 - **本地代理转发**：请求由本地 Go 服务转发，无 CORS / 混合内容限制；上游 4xx/5xx 原样透传
