@@ -25,8 +25,9 @@ show_tab_view = False
 show_pathbar = False
 show_sidebar = False
 
-# 图标定位（top-left 坐标，size=100 → 中心 y=260，与背景箭头对齐）
+# 图标定位：dmgbuild 此值为图标「中心」坐标（实测渲染中心=给定值，非左上角）。
+# 对称布局：左右各留 190pt，行中心 y=255（标题区下方居中）。
 icon_locations = {
-    'Postlite.app': (140, 210),
-    'Applications': (420, 210),
+    'Postlite.app': (190, 255),
+    'Applications': (470, 255),
 }

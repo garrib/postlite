@@ -1,6 +1,7 @@
 // scripts/make-dmg-bg.swift
 // 生成 DMG 拖动安装窗口背景图（660x420，与 scripts/dmg-settings.py 的 window_rect 1:1）。
-// 布局（窗口顶起算）：标题 56 · 副标题 100 · 图标中心 y=260（dmgbuild 图标定位 (140,210)/(420,210) size=100）
+// 设计只有顶部文字（标题 56 / 副标题 100，窗口顶起算）——刻意不画箭头：
+// dmgbuild 的 icon_locations 是图标中心坐标，箭头跨坐标系对齐太脆弱，图标本身即拖装暗示。
 // 构建：swiftc -O -o build/make-dmg-bg scripts/make-dmg-bg.swift
 // 运行：build/make-dmg-bg <输出.png>
 import AppKit
@@ -41,26 +42,6 @@ para.alignment = .center
         .paragraphStyle: para,
     ]
 )
-
-// 右向箭头：细线圆头，位于两图标中心连线上（AppKit y = 420-260 = 160），
-// 避开左右图标（左图标右缘 240、右图标左缘 420）
-let arrow = NSBezierPath()
-arrow.lineWidth = 5
-arrow.lineCapStyle = .round
-arrow.lineJoinStyle = .round
-arrow.move(to: NSPoint(x: 252, y: 160))
-arrow.line(to: NSPoint(x: 398, y: 160))
-brand.setStroke()
-arrow.stroke()
-
-let head = NSBezierPath()
-head.lineWidth = 5
-head.lineCapStyle = .round
-head.lineJoinStyle = .round
-head.move(to: NSPoint(x: 384, y: 174))
-head.line(to: NSPoint(x: 400, y: 160))
-head.line(to: NSPoint(x: 384, y: 146))
-head.stroke()
 
 img.unlockFocus()
 
