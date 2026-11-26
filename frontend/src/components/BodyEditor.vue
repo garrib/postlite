@@ -101,11 +101,11 @@ function fieldSizeLabel(f: BodyField): string {
 
 <template>
   <div class="body-editor">
-    <div class="tabs" style="padding: 0">
+    <div class="pill-tabs">
       <div
         v-for="t in types"
         :key="t.v"
-        class="tab"
+        class="pill"
         :class="{ active: body.type === t.v }"
         @click="patch({ type: t.v })"
       >

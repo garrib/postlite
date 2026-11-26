@@ -1,12 +1,15 @@
 <script setup lang="ts">
-// 响应查看器：状态、耗时、大小、响应头、Body（Pretty / Raw / 下载）。
+// 响应查看器：状态、耗时、大小、响应头、Body（Pretty / Raw / 复制 / 下载走平台桥）。
 import { computed, ref } from 'vue'
+import { copyText, filenameFor, platformDownload } from '../lib/platform'
 import type { ApiResponse } from '../lib/types'
 
 const props = defineProps<{ resp: ApiResponse | null }>()
 
 const view = ref<'body' | 'headers'>('body')
 const mode = ref<'pretty' | 'raw'>('pretty')
+const toast = ref('')
+let toastTimer: ReturnType<typeof setTimeout> | undefined
 
 const statusClass = computed(() => {
   const s = props.resp?.status ?? 0
@@ -35,31 +38,29 @@ const sizeLabel = computed(() => {
   return `${n} B`
 })
 
-function copyBody() {
+function showToast(msg: string) {
+  toast.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => (toast.value = ''), 1200)
+}
+
+async function copyBody() {
   if (!props.resp) return
-  const text = prettyBody.value ?? ''
-  void navigator.clipboard.writeText(text)
-  emitToast()
+  const ok = await copyText(prettyBody.value ?? '')
+  showToast(ok ? '已复制' : '复制失败')
 }
 
 function download() {
   const r = props.resp
   if (!r) return
-  const bin = atob(r.bodyBase64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  const blob = new Blob([bytes])
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = 'response.bin'
-  a.click()
-  URL.revokeObjectURL(a.href)
-}
-
-const toast = ref('')
-function emitToast() {
-  toast.value = '已复制'
-  setTimeout(() => (toast.value = ''), 1200)
+  let ct = ''
+  for (const h of r.headers) {
+    if (h.name.toLowerCase() === 'content-type') {
+      ct = h.value
+      break
+    }
+  }
+  platformDownload(filenameFor(ct), r.bodyBase64)
 }
 </script>
 
@@ -88,7 +89,7 @@ function emitToast() {
       </div>
       <pre v-if="resp.isText" class="resp-body">{{ prettyBody }}</pre>
       <div v-else class="resp-empty">
-        二进制内容（{{ sizeLabel }}），点右上「下载」保存；预览用 hex 见后续版本。
+        二进制内容（{{ sizeLabel }}），点右上「下载」保存。
       </div>
     </template>
     <div v-else class="pane-body">

@@ -1,6 +1,6 @@
 # Postlite 设计文档
 
-版本：v0.1.0 · 日期：2026-11-25 · 状态：定稿（实现基线）
+版本：v0.2.0 · 日期：2026-11-26 · 修订：原生 Mac 壳 + 浅色 Postman 风 UI
 
 ## 1. 定位
 
@@ -17,6 +17,7 @@
 
 | 能力 | 说明 |
 |---|---|
+| 原生 Mac 窗口 | WKWebView 壳 + Go server 子进程双进程模型；独立窗口、Dock 图标、原生菜单、原生保存面板，无浏览器痕迹 |
 | curl 导入 | 粘贴 bash / zsh / Windows cmd / PowerShell 复制出的 curl 命令，解析为表单 |
 | 表单化请求编辑 | 方法、URL、Query 参数表、Header 表、Body（5 种类型） |
 | 代理发送 | 由本地 Go 服务转发请求，绕开浏览器 CORS / 混合内容限制 |
@@ -81,18 +82,29 @@ done/error ──再次send──▶ sending（响应区切回 loading）
 |---|---|---|
 | 后端 | Go（标准库，**零第三方依赖**） | 单二进制、交叉编译、转发请求就是 net/http 本职 |
 | 前端 | Vue 3 + Vite + TypeScript | 与作者既有栈一致；产物 go:embed 内嵌进二进制 |
+| 原生壳 | Swift（AppKit + WKWebView，单文件 swiftc 直编，不经 SPM） | 真 Mac app 体验；体积增量 < 0.5MB |
 | 存储 | 单个 JSON 文件（原子写） | 历史量级小（7 天个人使用），不值得引 DB |
 | UI | 手写轻量 CSS，不引组件库 | 「轻量」是产品定位，产物体积敏感 |
 
-产物形态：`postlite` 单文件（≈10MB），运行后在 127.0.0.1 起服务并自动打开系统浏览器。`make app` 可组装成 `Postlite.app`。
+产物形态：**`Postlite.app`**（`Contents/MacOS/` 下两个可执行文件——Swift 壳 `Postlite` + Go 服务 `postlite-server`；Dock 图标 + 原生菜单栏）。另有 CLI 形态：`bin/postlite` 直接运行，起服务后自动打开系统浏览器。
 
 ### 4.2 运行时约束
 
 - **只绑定 127.0.0.1**，绝不监听局域网/通配地址 —— 免登录的安全边界即此。
 - 默认端口 7300，被占用则依次 +1 重试（上限 +50），以实际端口打开浏览器。
+- 双进程模型：`Postlite`（Swift 壳）启动 `postlite-server`（Go）子进程（`POSTLITE_NO_OPEN=1`），从其 stderr 日志解析实际监听地址后加载窗口；壳正常退出时 SIGTERM 子进程；壳被强杀（SIGKILL）时由 Go 侧父进程监控兜底。
 - 仅允许转发 `http://` `https://`，其余 scheme 拒绝。
 - 数据目录：`os.UserConfigDir()/postlite/`（macOS 为 `~/Library/Application Support/postlite/`）。
-- 环境变量：`POSTLITE_PORT`（指定起点端口）、`POSTLITE_NO_OPEN=1`（不自动开浏览器）、`POSTLITE_DATA_DIR`（覆盖数据目录，供测试）。
+- 环境变量：`POSTLITE_PORT`（指定起点端口）、`POSTLITE_NO_OPEN=1`（不自动开浏览器）、`POSTLITE_DATA_DIR`（覆盖数据目录，供测试）、`POSTLITE_WATCH_PARENT=1`（父进程退出后服务自杀，原生壳专用）。
+
+### 4.3 UI 风格（浅色 · Postman 风）
+
+- 整体浅色：白底主区、`#FAFBFC` 侧栏、`#E4E6EA` 分隔线、`#21252B` 主文本、`#6B7280` 次级文本。
+- 强调色 Postman 橙 `#FF6C37`：Send 按钮、Tab 激活下划线、输入框 focus ring、logo。
+- 方法配色：GET `#00A67D` · POST `#E8930C` · PUT `#2D8CFF` · PATCH `#8E5CE6` · DELETE `#EF4444` · 其他 `#6B7280`（历史列表、方法下拉同步着色）。
+- 布局仿 Postman：左侧历史侧栏（280px，检索/回填）→ 中栏上请求区（URL 栏在顶 + Params/Headers/Body Tab，Body 类型为分段式胶囊）→ 下响应区（状态行 + Body/Headers Tab）；Toast 用深色浮层做对比。
+- 原生桥（仅 .app 内生效）：`window.webkit.messageHandlers.postlite`；消息 `{name:'download', filename, base64}` → NSSavePanel 原生保存；浏览器形态回退 `<a download>`；剪贴板在 navigator.clipboard 失败时 execCommand 兜底。
+- 应用图标：macOS Big Sur 风格 squircle（透明画布 10% 边距、圆角 22.37%），Postman 橙渐变底 + 白色纸飞机；`scripts/make-icon.swift` 生成 iconset 后 `iconutil` 转 icns。
 
 ## 5. 安全边界
 
@@ -106,6 +118,7 @@ done/error ──再次send──▶ sending（响应区切回 loading）
 1. 粘贴 Chrome（macOS）「Copy as cURL」命令：方法/URL/Header/Body 全部正确还原，可一键发送成功。
 2. 五种 Body 类型（none / json / x-www-form-urlencoded / form-data / raw / binary 中除 none 外任选）均可编辑并发送，上游收到的字节与表单语义一致。
 3. 历史自动清理：超过 7 天的条目在启动/写入后不再出现；未过期条目不受影响。
-4. `make build` 产出单文件 `bin/postlite`；双击/命令行运行后自动打开浏览器；杀掉进程即全部清理（无残留服务）。
+4. `make app` 产出 `Postlite.app`：双击出现独立窗口（非浏览器）、Dock 图标与菜单栏可用、⌘C/⌘V/⌘Q 生效；`make build` 仍产出 CLI 单文件 `bin/postlite`。
 5. `go test ./...` 与前端 `npm test` 全绿；curl 解析器有方言级语料表测试。
 6. `nc -z` 确认服务仅监听 127.0.0.1，局域网 IP 不可达。
+7. 强杀壳进程（SIGKILL）后，`postlite-server` 子进程 3 秒内自行退出（父进程监控）；响应体下载在 .app 内走 NSSavePanel 原生保存面板。

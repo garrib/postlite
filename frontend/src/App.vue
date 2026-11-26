@@ -6,6 +6,7 @@ import KvEditor from './components/KvEditor.vue'
 import ResponseView from './components/ResponseView.vue'
 import { ApiError, clearHistory, deleteHistory, listHistory, sendRequest } from './lib/api'
 import { toCurl } from './lib/curlExport'
+import { copyText } from './lib/platform'
 import { parseCurl } from './lib/curlParse'
 import { buildUrl, parseUrl, type ParamRow } from './lib/params'
 import {
@@ -105,12 +106,8 @@ function closeImport() {
 }
 
 async function copyCurl() {
-  try {
-    await navigator.clipboard.writeText(toCurl(env.value))
-    toast('已复制 cURL 命令')
-  } catch {
-    toast('复制失败：浏览器未授权剪贴板')
-  }
+  const ok = await copyText(toCurl(env.value))
+  toast(ok ? '已复制 cURL 命令' : '复制失败')
 }
 
 // ———— 历史 ————
@@ -203,7 +200,7 @@ onMounted(() => {
     </div>
 
     <div class="url-bar">
-      <select v-model="env.method">
+      <select v-model="env.method" class="method-select" :class="'msel-' + env.method.toLowerCase()">
         <option v-for="m in METHODS" :key="m" :value="m">{{ m }}</option>
       </select>
       <input
@@ -220,6 +217,13 @@ onMounted(() => {
     </div>
 
     <div class="main-split">
+      <HistoryPanel
+        :items="history"
+        @load="loadHistory"
+        @delete="onDeleteHistory"
+        @clear="onClearHistory"
+      />
+
       <div class="workbench">
         <div class="request-pane">
           <div class="tabs">
@@ -256,13 +260,6 @@ onMounted(() => {
           <ResponseView v-else :resp="resp" />
         </div>
       </div>
-
-      <HistoryPanel
-        :items="history"
-        @load="loadHistory"
-        @delete="onDeleteHistory"
-        @clear="onClearHistory"
-      />
     </div>
 
     <div v-if="showImport" class="modal-mask" @click.self="closeImport">

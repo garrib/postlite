@@ -38,6 +38,11 @@ func run() error {
 		return err
 	}
 
+	// 原生壳专用：父进程退出（被 reparent 到 launchd）后自杀，避免孤儿服务。
+	if os.Getenv("POSTLITE_WATCH_PARENT") == "1" {
+		go watchParent()
+	}
+
 	store, err := history.Open(cfg.DataDir)
 	if err != nil {
 		return err
@@ -106,5 +111,17 @@ func openBrowser(url string) {
 	// 用户手动启动，浏览器打开失败只提示不报错。
 	if err := exec.Command(bin, url).Start(); err != nil {
 		log.Printf("自动打开浏览器失败（%v），请手动访问 %s", err, url)
+	}
+}
+
+// watchParent 轮询 ppid：原生壳被强杀（SIGKILL）时本进程会被 reparent，探测到即退出。
+func watchParent() {
+	ppid := os.Getppid()
+	for {
+		time.Sleep(2 * time.Second)
+		if os.Getppid() != ppid {
+			log.Println("postlite: 父进程已退出，服务随之关闭")
+			os.Exit(0)
+		}
 	}
 }

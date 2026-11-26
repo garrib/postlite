@@ -88,3 +88,21 @@
 | T2 | params→URL 回写 | disabled 行不进 URL；空 key 行丢弃 |
 | T3 | urlencoded/ form-data 信封构建 | 与 api.md §1 字段逐一对齐 |
 | T4 | curl 导出 | 表单→curl 字符串可再被自己的 parser 还原（round-trip） |
+
+### 3.5 平台桥 platform.ts
+
+| # | 用例 | 断言 |
+|---|---|---|
+| PB1 | filenameFor CT→扩展名映射 | `application/json`→response.json；带 charset 后缀同样命中；未知/空→response.bin（自动化） |
+| PB2 | copyText 剪贴板失败回退 execCommand | DOM 场景，标记 manual（浏览器/WKWebView 手工验） |
+| PB3 | platformDownload 原生桥 | window.webkit 存在时发 postlite download 消息，否则 `<a download>`；vitest 仅验纯函数分支（manual） |
+
+## 4. 手工 E2E（原生壳，脚本化执行）
+
+| # | 场景 | 通过标准 |
+|---|---|---|
+| M1 | 双击 Postlite.app | 独立窗口（非浏览器）、Dock 图标、菜单栏 ⌘Q/⌘C/⌘V 可用 |
+| M2 | 下载响应体 | NSSavePanel 原生保存面板，文件字节与响应一致 |
+| M3 | 正常退出（关窗/⌘Q） | postlite-server 子进程随之消失 |
+| M4 | 强杀壳（SIGKILL） | 子进程 ≤3s 自行退出（父进程监控） |
+| M5 | 子进程意外死亡 | 弹原生错误提示后应用退出（manual） |

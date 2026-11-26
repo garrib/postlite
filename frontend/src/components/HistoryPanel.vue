@@ -45,7 +45,7 @@ function statusOf(r: HistoryRecord): { label: string; cls: string } {
     <div class="history-list">
       <div v-for="rec in filtered" :key="rec.id" class="history-item" @click="emit('load', rec)">
         <div class="l1">
-          <span class="m">{{ rec.request.method }}</span>
+          <span class="m" :class="'m-' + rec.request.method.toLowerCase()">{{ rec.request.method }}</span>
           <span class="st" :class="statusOf(rec).cls">{{ statusOf(rec).label }}</span>
           <span class="t" style="margin-left: 8px">{{ fmtTime(rec.createdAt) }}</span>
           <span style="flex: 1"></span>
