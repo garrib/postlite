@@ -47,10 +47,32 @@
 从 [Releases](https://github.com/garrib/postlite/releases) 下载 `Postlite-<版本>-macos-universal.dmg`（Apple Silicon + Intel 双架构）：
 
 1. 打开 DMG，把 **Postlite 拖入 Applications** 完成安装
-2. 双击打开（ad-hoc 签名，若 Gatekeeper 拦截请右键 → 打开）
+2. 首次打开若出现「Apple 无法验证」提示 → **右键 → 打开**（仅一次）；详见下方 [安装签名说明](#安装签名说明)
 3. 窗口自动出现，开调
 
 <div align="center"><img src="docs/screenshots/install.png" width="480" alt="拖动安装" /></div>
+
+### 一键安装（不触发 Gatekeeper）
+
+`curl` 下载不会给文件打 macOS 隔离标记，因此**完全不会出现「Apple 无法验证」**：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/garrib/postlite/main/scripts/install.sh | sh
+# 中国大陆：export https_proxy=http://127.0.0.1:7890 后再执行
+# 指定版本：curl -fsSL .../install.sh | sh -s 0.2.5
+```
+
+### 安装签名说明
+
+Postlite 目前为 **ad-hoc 签名**（无付费 Apple Developer 账号，无法走公证），浏览器直接下载的应用会被 Gatekeeper 拦一次。三种处理方式：
+
+| 方式 | 操作 | 效果 |
+|---|---|---|
+| 一键安装脚本（推荐） | 上方 curl 命令 | 无提示，直接可用 |
+| 右键打开 | 首次启动右键 → 打开 → 打开 | 仅首次需要 |
+| 命令行剥离隔离标记 | `xattr -dr com.apple.quarantine /Applications/Postlite.app` | 一次清除 |
+
+彻底消除提示的正路需要 **Apple Developer Program**（$99/年）：`make release` 已自动探测 keychain 中的 Developer ID 证书（有则真签），配好 `xcrun notarytool store-credentials POSTLITE_NOTARY` 后 `make notarize` 即可公证。
 
 ### 从源码构建
 

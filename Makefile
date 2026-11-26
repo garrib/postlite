@@ -7,6 +7,8 @@ APP := bin/Postlite.app
 DIST := frontend/dist
 DMG := dist/Postlite-$(VERSION)-macos-universal.dmg
 PROXY ?= http://127.0.0.1:7890
+# Developer ID Application 证书自动探测（有则真签，无则 ad-hoc）——付费 Apple Developer 账号才有
+SIGN_ID := $(shell security find-identity -v -p codesigning 2>/dev/null | grep "Developer ID Application" | sed -E 's/.*"(.*)"$$/\1/' | head -1)
 
 define APP_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -27,7 +29,7 @@ define APP_PLIST
 endef
 export APP_PLIST
 
-.PHONY: build build-dist build-ui icon app release test run clean
+.PHONY: build build-dist build-ui icon app release notarize install test run clean
 
 # 构建前端产物（node_modules 缺失才走 npm ci，日常增量直接 vite build）
 build-dist:
@@ -84,7 +86,11 @@ release: build-dist icon
 	@cp bin/rel-shell dist/Postlite.app/Contents/MacOS/Postlite
 	@cp $(ICON) dist/Postlite.app/Contents/Resources/AppIcon.icns
 	@echo "$$APP_PLIST" > dist/Postlite.app/Contents/Info.plist
-	@codesign --force --deep -s - dist/Postlite.app >/dev/null 2>&1 || true
+	@if [ -n "$(SIGN_ID)" ]; then \
+		codesign --force --deep -s "$(SIGN_ID)" dist/Postlite.app && echo "→ 已用 $(SIGN_ID) 签名"; \
+	else \
+		codesign --force --deep -s - dist/Postlite.app >/dev/null 2>&1 && echo "→ ad-hoc 签名（keychain 无 Developer ID 证书）"; \
+	fi
 	# —— DMG（dmgbuild：拖动安装窗口，无需 Finder 自动化授权；构建期 venv 依赖）——
 	swiftc -O -o build/make-dmg-bg scripts/make-dmg-bg.swift
 	build/make-dmg-bg build/dmg-bg.png
@@ -97,6 +103,19 @@ release: build-dist icon
 	@cd dist && shasum -a 256 $(notdir $(DMG)) | tee $(notdir $(basename $(DMG)))-SHA256.txt
 	@rm -rf dist/Postlite.app
 	@echo "✔ $(DMG)（拖动安装窗口）"
+
+# Apple 公证（彻底消除 Gatekeeper 提示）：需 ① Developer ID Application 证书（make release
+# 自动探测）② 一次性配置 xcrun notarytool store-credentials POSTLITE_NOTARY ③ 付费开发者账号
+notarize: $(DMG)
+	@if [ -z "$(SIGN_ID)" ]; then echo "✗ 未发现 Developer ID 证书，公证无从谈起（ad-hoc 包不能公证）"; exit 1; fi
+	xcrun notarytool submit $(DMG) --keychain-profile "POSTLITE_NOTARY" --wait
+	xcrun stapler staple $(DMG)
+	@shasum -a 256 $(DMG) > dist/Postlite-$(VERSION)-macos-universal-SHA256.txt
+	@echo "✔ 已公证并 staple，重新上传 Release 附件即可"
+
+# 本机测试官方安装脚本（与发布页 curl 一键命令同一逻辑）
+install:
+	sh scripts/install.sh
 
 # 本地起服务（CLI 形态，不自动开浏览器）
 run: build

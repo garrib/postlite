@@ -123,6 +123,7 @@ done/error ──再次send──▶ sending（响应区切回 loading）
 - 转发是用户主动行为（工具本职），无黑名单；但拒绝非 http(s) scheme。
 - 响应捕获上限 20MB，超出截断并标记 `truncated`，防单响应打爆内存。
 - 落盘文件权限 0600；写入用 temp+rename 原子替换，避免半截文件。
+- **分发签名立场**：默认 ad-hoc 签名（无付费开发者账号），浏览器下载会带 quarantine 标记 → Gatekeeper 首启拦截；缓解：`scripts/install.sh` 用 curl 下载（不打 quarantine）+ 拷贝后主动剥离 xattr；`make release` 自动探测 keychain 里的 Developer ID 证书，有则真签；`make notarize` 预留公证入口（需 Apple Developer Program，配置一次 keychain-profile 即可）。
 
 ## 6. 验收标准
 
