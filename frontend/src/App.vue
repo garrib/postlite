@@ -7,7 +7,7 @@ import MethodSelect from './components/MethodSelect.vue'
 import ResponseView from './components/ResponseView.vue'
 import { ApiError, clearHistory, deleteHistory, listHistory, sendRequest } from './lib/api'
 import { toCurl } from './lib/curlExport'
-import { copyText, isNativeApp, onNativeSetOptions, postOptions } from './lib/platform'
+import { copyText, isNativeApp, onNativeRefreshHistory, onNativeSetOptions, postOptions } from './lib/platform'
 import { parseCurl } from './lib/curlParse'
 import { buildUrl, parseUrl, type ParamRow } from './lib/params'
 import { useClickOutside } from './lib/useClickOutside'
@@ -40,6 +40,11 @@ useClickOutside(settingsRoot, () => (settingsOpen.value = false))
 // 原生面板 → Web：Swift evaluateJavaScript 调这里。
 onNativeSetOptions((o) => {
   env.value.options = { ...env.value.options, ...o }
+})
+// 原生面板清空历史成功 → 刷新列表。
+onNativeRefreshHistory(() => {
+  history.value = []
+  toast('历史已清空')
 })
 // Web → 原生面板：选项变更即推（初始挂载后也推一次）。
 watch(
@@ -237,6 +242,15 @@ onMounted(() => {
               <input type="number" min="0" max="300000" step="100" v-model.number="env.options.timeoutMs" />
             </div>
             <div class="settings-hint">超时 0 = 不限（服务端硬顶 300s）</div>
+            <div class="settings-sep"></div>
+            <button class="settings-row settings-danger" @click="onClearHistory">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+              </svg>
+              <span>清空历史记录</span>
+            </button>
           </div>
         </div>
         <div class="logo"><span class="brand-post">Post</span><span class="brand-lite">lite</span></div>

@@ -21,6 +21,23 @@ const statusClass = computed(() => {
   return ''
 })
 
+// Content-Type 原文（取第一个 CT 头）
+const contentType = computed(() => {
+  for (const h of props.resp?.headers ?? []) {
+    if (h.name.toLowerCase() === 'content-type') return h.value
+  }
+  return ''
+})
+
+// image/* 响应内嵌预览（data URL）；截断的响应不预览（design.md §4.3）
+const imageSrc = computed(() => {
+  const r = props.resp
+  if (!r || r.truncated) return null
+  const ct = contentType.value.split(';')[0].trim().toLowerCase()
+  if (!ct.startsWith('image/')) return null
+  return `data:${ct};base64,${r.bodyBase64}`
+})
+
 const prettyBody = computed(() => {
   const r = props.resp
   if (!r || !r.isText) return null
@@ -65,14 +82,7 @@ async function copyBody() {
 function download() {
   const r = props.resp
   if (!r) return
-  let ct = ''
-  for (const h of r.headers) {
-    if (h.name.toLowerCase() === 'content-type') {
-      ct = h.value
-      break
-    }
-  }
-  platformDownload(filenameFor(ct), r.bodyBase64)
+  platformDownload(filenameFor(contentType.value), r.bodyBase64)
 }
 </script>
 
@@ -85,8 +95,19 @@ function download() {
       <span>{{ sizeLabel }}<span v-if="resp.truncated" title="响应超过 20MB，已截断展示">（已截断）</span></span>
       <span v-if="!resp.isText" style="color: var(--warn)">二进制响应</span>
       <span style="flex: 1"></span>
-      <button class="ghost" @click="copyBody">复制</button>
-      <button class="ghost" @click="download">下载</button>
+      <button class="ghost icon-btn" title="复制响应体" @click="copyBody">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      </button>
+      <button class="ghost icon-btn" title="下载响应体" @click="download">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+      </button>
     </div>
     <div class="tabs">
       <div class="tab" :class="{ active: view === 'body' }" @click="view = 'body'">Body</div>
@@ -95,15 +116,20 @@ function download() {
       </div>
     </div>
     <template v-if="view === 'body'">
-      <div v-if="resp.isText" class="resp-meta" style="border-bottom: none; padding-bottom: 0">
-        <div class="tab" :class="{ active: mode === 'pretty' }" @click="mode = 'pretty'">Pretty</div>
-        <div class="tab" :class="{ active: mode === 'raw' }" @click="mode = 'raw'">Raw</div>
+      <div v-if="imageSrc" class="resp-image">
+        <img :src="imageSrc" alt="响应图片预览" />
       </div>
-      <pre v-if="prettyHtml !== null" class="resp-body" v-html="prettyHtml"></pre>
-      <pre v-else-if="resp.isText" class="resp-body">{{ prettyBody }}</pre>
-      <div v-else class="resp-empty">
-        二进制内容（{{ sizeLabel }}），点右上「下载」保存。
-      </div>
+      <template v-else>
+        <div v-if="resp.isText" class="resp-meta" style="border-bottom: none; padding-bottom: 0">
+          <div class="tab" :class="{ active: mode === 'pretty' }" @click="mode = 'pretty'">Pretty</div>
+          <div class="tab" :class="{ active: mode === 'raw' }" @click="mode = 'raw'">Raw</div>
+        </div>
+        <pre v-if="prettyHtml !== null" class="resp-body" v-html="prettyHtml"></pre>
+        <pre v-else-if="resp.isText" class="resp-body">{{ prettyBody }}</pre>
+        <div v-else class="resp-empty">
+          二进制内容（{{ sizeLabel }}），点右上「下载」保存。
+        </div>
+      </template>
     </template>
     <div v-else class="pane-body">
       <table class="kv-table">

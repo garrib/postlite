@@ -156,9 +156,10 @@ label.settings-row:hover { background: var(--panel); }
   padding: 6px 10px 4px;
   font-size: 11px;
   color: #9aa1ab;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
 }
+.settings-sep { border-top: 1px solid var(--border); margin: 4px 2px; }
+.settings-danger { color: var(--danger); background: transparent; border: none; width: 100%; text-align: left; }
+.settings-danger:hover { background: #fef2f2; border-color: transparent; }
 
 /* ———— PopSelect 通用自绘下拉 ———— */
 
@@ -418,6 +419,24 @@ label.settings-row:hover { background: var(--panel); }
 .j-null { color: #986f0b; }
 .resp-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
 
+/* 图片响应内嵌预览 */
+.resp-image {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--panel);
+}
+.resp-image img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(31, 35, 43, 0.08);
+}
+
 .error-box {
   margin: 12px 14px;
   padding: 10px 12px;
@@ -442,7 +461,24 @@ label.settings-row:hover { background: var(--panel); }
   min-height: 0;
 }
 .history-head { padding: 10px 12px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--border); }
-.history-head input { flex: 1; font-size: 12px; }
+.hh-input { position: relative; flex: 1; min-width: 0; }
+.hh-input input { width: 100%; font-size: 12px; padding-right: 28px; }
+.hh-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: #9aa1ab;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.hh-clear:hover { color: var(--danger); }
 .history-list { flex: 1; overflow: auto; min-height: 0; }
 .hg-label { padding: 10px 10px 4px; font-size: 11px; font-weight: 600; color: #9aa1ab; user-select: none; }
 .history-item {

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var window: NSWindow?
     private var webView: WKWebView?
     private var server: Process?
+    private var serverBaseURL: URL?
     private var terminating = false
 
     // —— 发送选项（与 Web 双向同步，design.md §4.3）——
@@ -97,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     private func serverReady(url: URL) {
         guard window == nil else { return } // 只处理首个日志行
+        serverBaseURL = url
         buildWindow(url: url)
     }
 
@@ -219,15 +221,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         hint.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
         hint.textColor = .secondaryLabelColor
 
-        let stack = NSStackView(views: [follow, insecure, timeoutRow, timeoutHint, hint])
+        let sep = NSBox()
+        sep.boxType = .separator
+
+        let clearBtn = NSButton(title: "清空历史记录…", target: self, action: #selector(clearHistoryRequested))
+
+        let stack = NSStackView(views: [follow, insecure, timeoutRow, timeoutHint, hint, sep, clearBtn])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
         stack.edgeInsets = NSEdgeInsets(top: 22, left: 24, bottom: 18, right: 24)
         stack.setCustomSpacing(6, after: timeoutRow)
+        sep.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36).isActive = true
 
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 190),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 230),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -262,6 +270,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         if timeoutField?.currentEditor() == nil { // 用户正在输入时不打断
             timeoutField?.stringValue = optTimeoutMs > 0 ? String(optTimeoutMs) : ""
         }
+    }
+
+    // MARK: - 清空历史（原生面板入口）
+
+    @objc private func clearHistoryRequested() {
+        let alert = NSAlert()
+        alert.messageText = "清空历史记录？"
+        alert.informativeText = "将删除最近 7 天的全部请求历史，不可恢复。"
+        alert.addButton(withTitle: "清空")
+        alert.addButton(withTitle: "取消")
+        alert.alertStyle = .warning
+        guard alert.runModal() == .alertFirstButtonReturn, let base = serverBaseURL else { return }
+
+        var req = URLRequest(url: base.appendingPathComponent("api/history"))
+        req.httpMethod = "DELETE"
+        URLSession.shared.dataTask(with: req) { [weak self] _, resp, _ in
+            DispatchQueue.main.async {
+                if let http = resp as? HTTPURLResponse, http.statusCode == 204 {
+                    // 通知 Web 刷新列表（window.__postliteRefreshHistory 由前端注册）
+                    self?.webView?.evaluateJavaScript(
+                        "window.__postliteRefreshHistory&&window.__postliteRefreshHistory()",
+                        completionHandler: nil
+                    )
+                } else {
+                    let a = NSAlert()
+                    a.messageText = "清空失败"
+                    a.informativeText = "服务端返回异常，请重试。"
+                    a.runModal()
+                }
+            }
+        }.resume()
     }
 
     // MARK: - 菜单（Edit 菜单是 WKWebView 文本编辑快捷键生效的前提）

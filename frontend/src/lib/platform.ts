@@ -68,6 +68,11 @@ export function onNativeSetOptions(cb: (o: Partial<SendOptions>) => void): void 
   ;(window as unknown as { __postliteSetOptions?: unknown }).__postliteSetOptions = cb
 }
 
+/** 原生 → Web：原生面板清空历史成功后通知 Web 刷新列表。 */
+export function onNativeRefreshHistory(cb: () => void): void {
+  ;(window as unknown as { __postliteRefreshHistory?: unknown }).__postliteRefreshHistory = cb
+}
+
 /** 由 Content-Type 推断下载文件名扩展。 */
 export function filenameFor(contentType: string): string {
   const ct = (contentType || '').split(';')[0].trim().toLowerCase()

@@ -9,7 +9,7 @@ import (
 )
 
 // Version 与发版号保持一致。
-const Version = "0.2.4"
+const Version = "0.2.5"
 
 type Config struct {
 	Port        int    // 实际监听起点端口（占用自动 +1 由 main 处理）
