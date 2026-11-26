@@ -13,7 +13,7 @@ export interface Header {
   enabled: boolean
 }
 
-export type BodyType = 'none' | 'json' | 'x-www-form-urlencoded' | 'form-data' | 'raw' | 'binary'
+export type BodyType = 'json' | 'x-www-form-urlencoded' | 'form-data' | 'raw' | 'binary'
 
 export interface BodyField {
   name: string
@@ -96,7 +96,8 @@ export function emptyField(): BodyField {
 }
 
 export function emptyBody(): Body {
-  return { type: 'none', text: '', mime: '', fields: [] }
+  // v0.2.4 起无 none 类型：空文本即不发送 body（api.md 代理构建规则）
+  return { type: 'json', text: '', mime: '', fields: [] }
 }
 
 export function emptyRequest(): RequestEnvelope {

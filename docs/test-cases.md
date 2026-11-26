@@ -46,6 +46,7 @@
 | P18 | header 值含 CR/LF | 400（Go 侧显式校验拒绝，见实现） |
 | P19 | 超尺寸 text/base64/headers/fields | 各自 400 |
 | P20 | HEAD/DELETE 带 body=none | 上游正常收到 |
+| P21 | json 空 text | 上游无 body、无 Content-Type（v0.2.4 空=无 body） |
 
 ### 3.2 Go history（表驱动 + 假时钟）
 

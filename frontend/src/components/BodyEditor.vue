@@ -4,7 +4,8 @@ import { computed, ref } from 'vue'
 import KvEditor from './KvEditor.vue'
 import PopSelect from './PopSelect.vue'
 import { fileToBase64 } from '../lib/api'
-import type { Body, BodyField, PopOption } from '../lib/types'
+import { highlightJson } from '../lib/highlightJson'
+import { emptyField, type Body, type BodyField, type PopOption } from '../lib/types'
 
 // form-data 字段类型下拉复用 PopSelect（design.md §4.3）
 const TYPE_OPTS: PopOption[] = [
@@ -15,8 +16,8 @@ const TYPE_OPTS: PopOption[] = [
 const props = defineProps<{ body: Body }>()
 const emit = defineEmits<{ (e: 'update:body', v: Body): void }>()
 
+// v0.2.4 无 none：空文本即不发 body（api.md 代理构建规则）
 const types = [
-  { v: 'none', label: 'none' },
   { v: 'json', label: 'json' },
   { v: 'x-www-form-urlencoded', label: 'x-www-form-urlencoded' },
   { v: 'form-data', label: 'form-data' },
@@ -53,6 +54,9 @@ function setFields(fields: BodyField[]) {
   patch({ fields })
 }
 
+// form-data 默认显示一行空行（design.md §4.3）：空行不发送，「＋」按钮加行。
+const displayFields = computed(() => (props.body.fields.length === 0 ? [emptyField()] : props.body.fields))
+
 // KvEditor 产出纯 KV 行；回填成完整 BodyField（urlencoded 恒为文本字段）。
 function onUrlRows(rows: Array<{ name: string; value: string; enabled: boolean }>) {
   setFields(
@@ -69,7 +73,8 @@ function onUrlRows(rows: Array<{ name: string; value: string; enabled: boolean }
 }
 
 function setField(i: number, p: Partial<BodyField>) {
-  setFields(props.body.fields.map((f, idx) => (idx === i ? { ...f, ...p } : f)))
+  const base = props.body.fields.length === 0 ? [emptyField()] : props.body.fields
+  setFields(base.map((f, idx) => (idx === i ? { ...f, ...p } : f)))
 }
 
 function addField(type: 'text' | 'file') {
@@ -80,6 +85,7 @@ function addField(type: 'text' | 'file') {
 }
 
 function removeField(i: number) {
+  if (props.body.fields.length === 0) return // 引导空行不可删
   setFields(props.body.fields.filter((_, idx) => idx !== i))
 }
 
@@ -98,6 +104,17 @@ function clearFile(i: number) {
 
 // binary body：单文件，存到 text（base64），fileName 不落信封（发送端只见 base64）。
 const binaryName = ref('')
+
+// 请求 json 编辑器：透明 textarea 叠加高亮层（design.md §4.3），同步滚动。
+const highlightEl = ref<HTMLElement | null>(null)
+const bodyHtml = computed(() => (props.body.text === '' ? '' : highlightJson(props.body.text)))
+function syncScroll(ev: Event) {
+  const ta = ev.target as HTMLTextAreaElement
+  if (highlightEl.value) {
+    highlightEl.value.scrollTop = ta.scrollTop
+    highlightEl.value.scrollLeft = ta.scrollLeft
+  }
+}
 async function pickBinary(ev: Event) {
   const file = (ev.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -127,22 +144,33 @@ function fieldSizeLabel(f: BodyField): string {
     </div>
 
     <div style="padding-top: 10px">
-      <template v-if="body.type === 'none'">
-        <div style="color: var(--text-dim)">该请求无 body。</div>
-      </template>
-
-      <template v-else-if="body.type === 'json' || body.type === 'raw'">
-        <div v-if="body.type === 'json'" style="margin-bottom: 6px; display: flex; gap: 8px; align-items: center">
+      <template v-if="body.type === 'json'">
+        <div style="margin-bottom: 6px; display: flex; gap: 8px; align-items: center">
           <button @click="formatJson">格式化</button>
           <span v-if="jsonValid === false" style="color: var(--danger)">JSON 非法（仍可按原文发送）</span>
+          <span v-else-if="body.text.trim() !== ''" style="color: var(--text-dim)">JSON 合法</span>
         </div>
+        <div class="code-editor">
+          <pre ref="highlightEl" class="code-highlight" aria-hidden="true" v-html="bodyHtml"></pre>
+          <textarea
+            class="code-input"
+            :value="body.text"
+            placeholder='请求体 JSON，如 {"key": "value"}'
+            spellcheck="false"
+            @input="patch({ text: ($event.target as HTMLTextAreaElement).value })"
+            @scroll="syncScroll"
+          ></textarea>
+        </div>
+      </template>
+
+      <template v-else-if="body.type === 'raw'">
         <textarea
           :value="body.text"
           placeholder="请求体文本"
           spellcheck="false"
           @input="patch({ text: ($event.target as HTMLTextAreaElement).value })"
         ></textarea>
-        <div v-if="body.type === 'raw'" style="margin-top: 8px">
+        <div style="margin-top: 8px">
           <span style="color: var(--text-dim)">MIME：</span>
           <input class="mime-input" type="text" :value="body.mime" placeholder="缺省 text/plain" @input="patch({ mime: ($event.target as HTMLInputElement).value })" />
         </div>
@@ -154,7 +182,7 @@ function fieldSizeLabel(f: BodyField): string {
 
       <template v-else-if="body.type === 'form-data'">
         <div class="fd-rows">
-          <div v-for="(f, i) in formFields" :key="i" class="fd-row" :class="{ disabled: !f.enabled }">
+          <div v-for="(f, i) in displayFields" :key="i" class="fd-row" :class="{ disabled: !f.enabled }">
             <input type="checkbox" :checked="f.enabled" title="启用/禁用此字段" @change="setField(i, { enabled: !f.enabled })" />
             <input class="fd-name" type="text" :value="f.name" placeholder="字段名" @input="setField(i, { name: ($event.target as HTMLInputElement).value })" />
             <PopSelect
@@ -186,11 +214,9 @@ function fieldSizeLabel(f: BodyField): string {
             </div>
             <button class="row-del fd-del" title="删除此字段" @click="removeField(i)">✕</button>
           </div>
-          <div v-if="formFields.length === 0" class="fd-empty">暂无字段——用下方按钮添加</div>
         </div>
         <div class="fd-actions">
-          <button class="ghost" @click="addField('text')">＋ 文本字段</button>
-          <button class="ghost" @click="addField('file')">＋ 文件字段</button>
+          <button class="ghost add-btn" title="添加字段" @click="addField('text')">＋</button>
         </div>
       </template>
 

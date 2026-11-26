@@ -510,6 +510,24 @@ func TestExecute(t *testing.T) {
 			},
 		},
 		{
+			name: "P21 json 空 text → 无 body 无 CT",
+			env: func(u string) RequestEnvelope {
+				return RequestEnvelope{Method: "GET", URL: u, Body: Body{Type: "json", Text: ""}}
+			},
+			check: func(t *testing.T, _ Response, perr *ExecError, cap *upcap) {
+				if perr != nil {
+					t.Fatalf("perr: %v", perr)
+				}
+				_, h, body, _ := cap.get()
+				if len(body) != 0 {
+					t.Fatalf("不应有 body，得到 %q", body)
+				}
+				if ct := h.Get("Content-Type"); ct != "" {
+					t.Fatalf("不应有 Content-Type，得到 %q", ct)
+				}
+			},
+		},
+		{
 			name: "P20 HEAD 无 body",
 			env:  func(u string) RequestEnvelope { return RequestEnvelope{Method: "HEAD", URL: u} },
 			check: func(t *testing.T, _ Response, perr *ExecError, cap *upcap) {

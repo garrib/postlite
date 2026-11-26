@@ -105,9 +105,13 @@ done/error ──再次send──▶ sending（响应区切回 loading）
 - 方法配色：GET `#00A67D` · POST `#E8930C` · PUT `#2D8CFF` · PATCH `#8E5CE6` · DELETE `#EF4444` · 其他 `#6B7280`（历史列表、方法下拉同步着色）。
 - 下拉统一用自绘组件 `PopSelect`：按钮态 = 当前项（可着色）+ caret，展开列表逐项着色 + 当前项勾选，点击外部/Esc 关闭、↑↓ + Enter 键盘可达；方法选择器（按钮宽度自适应，GET/POST 紧凑）与 form-data 文本/文件类型下拉均复用它。
 - 发送选项（跟随重定向 / 跳过证书校验 / 超时 ms）在 **macOS 系统菜单栏**：应用菜单内「设置…（⌘,）」打开原生设置面板，与 Web 状态双向同步（Web → 原生走 bridge 消息 `options`；原生 → Web 走 `window.__postliteSetOptions`）；浏览器（CLI）形态无原生菜单，回退为左上角「设置」下拉。
-- Params / Headers / x-www-form-urlencoded 表：**空表时显示一行空行**（占位符引导），输入即建行，不做纯空白；form-data 空态显示引导文案。
+- 请求区 Tab 顺序：**Params / Body / Headers**，新请求默认选中 Params（Postman 风）。
+- Body 类型胶囊：json / x-www-form-urlencoded / form-data / raw / binary（v0.2.4 起**无 none**，旧历史数据兼容读取、等价空 body）；`json`/`raw`/`binary` 文本为空时不发送 body、不加 Content-Type。
+- 请求 json 编辑器带**语法高亮**：透明 textarea 叠加高亮层（同步滚动），高亮复用 highlightJson（先转义防注入）；raw 保持纯文本。
+- Params / Headers / x-www-form-urlencoded / form-data 表：**默认显示一行空行**（占位符引导），空行不发送；底部单个「＋」按钮加行（Postman 风），不做双按钮与空态文案。
 - 响应 Body 的 Pretty 视图对合法 JSON 做语法高亮：key / 字符串 / 数字 / 布尔 / null 分色；实现为先 HTML 转义再包 span（防注入），非法 JSON 按纯文本展示。
-- form-data 编辑行为栅格行：启用框 / 字段名 / 类型（文本|文件）/ 值区 / 删除；文件字段选中后显示「图标 + 文件名 + 大小」chip，可「换」重选、可 ✕ 清除内容；底部「＋ 文本字段 / ＋ 文件字段」。
+- 历史侧条目仿 Postman：仅 **方法 + URL**（方法配色），**按日分组**（今天 / 昨天 / M月D日），不展示状态码与响应预览；删除按钮 hover 出现。
+- form-data 编辑行为栅格行：启用框 / 字段名 / 类型（文本|文件，PopSelect）/ 值区 / 删除；文件字段选中后显示「图标 + 文件名 + 大小」chip，可「换」重选、可 ✕ 清除内容。
 - 布局仿 Postman：左侧历史侧栏（280px，检索/回填）→ 中栏上请求区（URL 栏在顶 + Params/Headers/Body Tab，Body 类型为分段式胶囊）→ 下响应区（状态行 + Body/Headers Tab）；Toast 用深色浮层做对比。
 - 原生桥（仅 .app 内生效）：`window.webkit.messageHandlers.postlite`；消息 `{name:'download', filename, base64}` → NSSavePanel 原生保存；浏览器形态回退 `<a download>`；剪贴板在 navigator.clipboard 失败时 execCommand 兜底。
 - 应用图标：macOS Big Sur 风格 squircle（透明画布 10% 边距、圆角 22.37%），**品牌主色渐变底（#1E4A41 → #112A25）+ 白色纸飞机**；`scripts/make-icon.swift` 生成 iconset 后 `iconutil` 转 icns。

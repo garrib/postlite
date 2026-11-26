@@ -478,8 +478,8 @@ function finalizeBody(ctx: ParseCtx) {
 
   const dataParts = [...ctx.dataParts, ...ctx.urlencodeParts]
   if (dataParts.length === 0) {
-    // curl --json 不带数据时也倾向 json 类型
-    ctx.env.body.type = ctx.jsonUsed ? 'json' : 'none'
+    // 无 data：默认 json 空 body（空文本不发送，v0.2.4 无 none 类型）
+    ctx.env.body.type = 'json'
     return
   }
 

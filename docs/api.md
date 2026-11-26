@@ -32,8 +32,9 @@
   "headers": [                   // 可选；顺序保留；重复名允许
     { "name": "Authorization", "value": "Bearer x", "enabled": true }
   ],
-  "body": {                      // 可选，缺省等价 type=none
-    "type": "none",              // none | json | x-www-form-urlencoded | form-data | raw | binary
+  "body": {                      // 可选
+    "type": "json",              // json | x-www-form-urlencoded | form-data | raw | binary
+                                 // （历史文件可能含旧 none：兼容读取，等价空 body，v0.2.4 起不再产生）
     "text": "原始文本体",         // json / raw / none 之外的文本体（json 直接存文本，不强制合法性）
     "mime": "application/xml",   // 仅 raw 用；raw 默认 text/plain
     "fields": [                  // 仅 form-data / x-www-form-urlencoded 用
@@ -80,7 +81,7 @@
 - `x-www-form-urlencoded`：未显式给时自动设 `application/x-www-form-urlencoded`；只取 `enabled=true` 的 fields 按 name=urlencode 拼接。
 - `raw`：未显式给时按 `mime` 设，`mime` 空 → `text/plain`。
 - `binary`：未显式给时 `application/octet-stream`。
-- `none`：GET/HEAD/DELETE 无 body；其余方法也允许无 body。
+- `json`/`raw`/`binary` 的 text 为**空**时不发送 body、也不自动加 Content-Type（无 body 请求直接留空即可）。
 
 ## 2. 代理响应（代理 → 前端）
 

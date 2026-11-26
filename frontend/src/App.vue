@@ -50,7 +50,7 @@ watch(
   { deep: true },
 )
 
-const tab = ref<'params' | 'headers' | 'body'>('body')
+const tab = ref<'params' | 'headers' | 'body'>('params') // 默认选中 Params（Postman 风）
 
 // URL 与参数行双向同步（test-cases.md T1/T2）。
 function reparseUrl() {
@@ -143,11 +143,13 @@ async function refreshHistory() {
 }
 
 function loadHistory(rec: HistoryRecord) {
+  // 旧历史可能含 none 类型（v0.2.4 起移除），映射为空 json
+  const legacyType = rec.request.body.type as string
   env.value = {
     method: rec.request.method,
     url: rec.request.url,
     headers: rec.request.headers.map((h) => ({ ...h })),
-    body: { ...rec.request.body },
+    body: { ...rec.request.body, type: legacyType === 'none' ? 'json' : legacyType } as Body,
     options: { ...rec.request.options },
   }
   reparseUrl()
@@ -283,10 +285,10 @@ onMounted(() => {
             <div class="tab" :class="{ active: tab === 'params' }" @click="tab = 'params'">
               Params<span v-if="enabledParamCount" class="count">{{ enabledParamCount }}</span>
             </div>
+            <div class="tab" :class="{ active: tab === 'body' }" @click="tab = 'body'">Body</div>
             <div class="tab" :class="{ active: tab === 'headers' }" @click="tab = 'headers'">
               Headers<span v-if="enabledHeaderCount" class="count">{{ enabledHeaderCount }}</span>
             </div>
-            <div class="tab" :class="{ active: tab === 'body' }" @click="tab = 'body'">Body</div>
           </div>
           <div class="pane-body">
             <KvEditor
@@ -296,14 +298,14 @@ onMounted(() => {
               value-placeholder="值"
               @update:rows="onParamKv"
             />
+            <BodyEditor v-else-if="tab === 'body'" :body="env.body" @update:body="onBody" />
             <KvEditor
-              v-else-if="tab === 'headers'"
+              v-else
               :rows="env.headers"
               key-placeholder="Header 名"
               value-placeholder="值"
               @update:rows="onHeaders"
             />
-            <BodyEditor v-else :body="env.body" @update:body="onBody" />
           </div>
         </div>
 

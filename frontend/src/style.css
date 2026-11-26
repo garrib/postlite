@@ -273,6 +273,51 @@ label.settings-row:hover { background: var(--panel); }
 }
 .mime-input { width: 260px; }
 
+/* ＋ 加行按钮（KvEditor / form-data 共用，Postman 风） */
+.add-btn { padding: 2px 12px; font-size: 14px; line-height: 1.5; color: var(--text-dim); }
+.add-btn:hover { color: var(--accent); border-color: var(--border-strong); }
+
+/* 请求 json 编辑器：透明 textarea 叠加高亮层（两者排版参数必须一致） */
+.code-editor { position: relative; }
+.code-editor .code-highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #33383f;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.code-editor textarea.code-input {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.code-editor textarea.code-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.code-input::placeholder { color: #9aa1ab; }
+
 /* form-data 栅格行（design.md §4.3） */
 .fd-rows { display: flex; flex-direction: column; }
 .fd-row {
@@ -292,7 +337,6 @@ label.settings-row:hover { background: var(--panel); }
 .fd-row .fd-value input[type='text'] { width: 100%; height: 30px; }
 .fd-del { color: #c3c7cf; background: transparent; border: none; padding: 2px 6px; }
 .fd-del:hover { color: var(--danger); }
-.fd-empty { padding: 18px 10px; color: #9aa1ab; font-size: 12px; }
 .fd-actions { display: flex; gap: 6px; margin-top: 6px; }
 
 /* 文件字段 chip */
@@ -400,18 +444,29 @@ label.settings-row:hover { background: var(--panel); }
 .history-head { padding: 10px 12px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--border); }
 .history-head input { flex: 1; font-size: 12px; }
 .history-list { flex: 1; overflow: auto; min-height: 0; }
-.history-item { padding: 7px 10px; border-bottom: 1px solid #eef0f3; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.hg-label { padding: 10px 10px 4px; font-size: 11px; font-weight: 600; color: #9aa1ab; user-select: none; }
+.history-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .history-item:hover { background: #f0f2f5; }
-.history-item .l1 { display: flex; gap: 6px; align-items: center; }
-.history-item .l1 .m { font-family: var(--mono); font-size: 11px; font-weight: 700; min-width: 52px; flex: none; }
-.history-item .l1 .st { font-family: var(--mono); font-size: 11px; margin-left: auto; flex: none; }
-.history-item .l1 .st.s2 { color: var(--success); }
-.history-item .l1 .st.s3 { color: var(--warn); }
-.history-item .l1 .st.s4 { color: #f0763f; }
-.history-item .l1 .st.s5 { color: var(--danger); }
-.history-item .l1 .st.err { color: var(--text-dim); }
-.history-item .u { font-family: var(--mono); font-size: 11.5px; color: #454b54; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history-item .t { font-size: 10.5px; color: var(--text-dim); }
+.history-item .m { font-family: var(--mono); font-size: 11px; font-weight: 700; min-width: 52px; flex: none; }
+.history-item .u {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: #454b54;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-item .hd { opacity: 0; color: #9aa1ab; background: transparent; border: none; padding: 0 4px; font-size: 11px; flex: none; }
+.history-item:hover .hd { opacity: 1; }
+.history-item .hd:hover { color: var(--danger); }
 
 /* 历史方法配色 */
 .history-item .m.m-get { color: var(--m-get); }

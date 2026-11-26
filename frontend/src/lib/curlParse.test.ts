@@ -55,7 +55,8 @@ describe('parseCurl', () => {
     expect(r.method).toBe('GET')
     expect(r.url).toBe('https://api.example.com/v1/users?page=2')
     expect(r.headers.find((h) => h.name === 'Authorization')?.value).toBe('Bearer tok')
-    expect(r.body.type).toBe('none')
+    expect(r.body.type).toBe('json')
+    expect(r.body.text).toBe('')
     expect(headersOf(r)['accept']).toBe('application/json')
     expect(headersOf(r)['Accept-Encoding']).toBe('gzip, deflate')
   })
@@ -107,7 +108,8 @@ describe('parseCurl', () => {
     const r = parseCurl(`curl -G 'http://a.b/c' --data-urlencode 'q=中 文'`)
     expect(r.method).toBe('GET')
     expect(r.url).toBe('http://a.b/c?q=%E4%B8%AD%20%E6%96%87')
-    expect(r.body.type).toBe('none')
+    expect(r.body.type).toBe('json')
+    expect(r.body.text).toBe('')
   })
 
   it('F3: --json 等价 -d + Accept/CT json', () => {

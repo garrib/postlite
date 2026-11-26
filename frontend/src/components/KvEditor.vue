@@ -59,5 +59,5 @@ const showAdd = computed(() => props.addable !== false)
       </tr>
     </tbody>
   </table>
-  <button v-if="showAdd" class="add-row ghost" @click="add">+ 添加一行</button>
+  <button v-if="showAdd" class="ghost add-btn" title="添加一行" @click="add">＋</button>
 </template>

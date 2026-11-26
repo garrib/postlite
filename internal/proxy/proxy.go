@@ -252,20 +252,26 @@ func buildRequest(env *RequestEnvelope) (*http.Request, *ExecError) {
 	var autoCT string
 
 	switch env.Body.Type {
-	case "", "none":
+	case "", "none": // none 为历史数据兼容（v0.2.4 起前端不再产生）
 	case "json":
-		body = []byte(env.Body.Text)
-		autoCT = "application/json"
+		if env.Body.Text != "" { // 空文本 = 无 body、不加 CT（api.md 代理构建规则）
+			body = []byte(env.Body.Text)
+			autoCT = "application/json"
+		}
 	case "raw":
-		body = []byte(env.Body.Text)
-		autoCT = strings.TrimSpace(env.Body.Mime)
-		if autoCT == "" {
-			autoCT = "text/plain"
+		if env.Body.Text != "" {
+			body = []byte(env.Body.Text)
+			autoCT = strings.TrimSpace(env.Body.Mime)
+			if autoCT == "" {
+				autoCT = "text/plain"
+			}
 		}
 	case "binary":
-		// Validate 已确保 text 为合法 base64；空串 = 空文件体。
-		body, _ = base64.StdEncoding.DecodeString(env.Body.Text)
-		autoCT = "application/octet-stream"
+		// Validate 已确保 text 为合法 base64；空串 = 空文件体 → 不发送。
+		if env.Body.Text != "" {
+			body, _ = base64.StdEncoding.DecodeString(env.Body.Text)
+			autoCT = "application/octet-stream"
+		}
 	case "x-www-form-urlencoded":
 		vals := url.Values{}
 		for _, f := range env.Body.Fields {
