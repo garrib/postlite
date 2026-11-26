@@ -44,11 +44,13 @@
 
 ### 下载 Release（推荐）
 
-从 [Releases](https://github.com/garrib/postlite/releases) 下载 `Postlite-<版本>-macos-universal.zip`（Apple Silicon + Intel 双架构）：
+从 [Releases](https://github.com/garrib/postlite/releases) 下载 `Postlite-<版本>-macos-universal.dmg`（Apple Silicon + Intel 双架构）：
 
-1. 解压，把 `Postlite.app` 拖进「应用程序」
+1. 打开 DMG，把 **Postlite 拖入 Applications** 完成安装
 2. 双击打开（ad-hoc 签名，若 Gatekeeper 拦截请右键 → 打开）
 3. 窗口自动出现，开调
+
+<div align="center"><img src="docs/screenshots/install.png" width="480" alt="拖动安装" /></div>
 
 ### 从源码构建
 
@@ -56,7 +58,7 @@
 git clone https://github.com/garrib/postlite.git
 cd postlite
 make app          # 产出 bin/Postlite.app（当前架构）
-make release      # 产出 universal 发布包 dist/Postlite-<版本>-macos-universal.zip
+make release      # 产出 universal 拖装 DMG dist/Postlite-<版本>-macos-universal.dmg
 ```
 
 依赖：Go 1.25+、Xcode Command Line Tools（swiftc）、Node 20+（前端构建）。

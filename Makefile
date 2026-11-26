@@ -5,7 +5,8 @@ UI_BIN := bin/Postlite
 ICON := build/AppIcon.icns
 APP := bin/Postlite.app
 DIST := frontend/dist
-ZIP := dist/Postlite-$(VERSION)-macos-universal.zip
+DMG := dist/Postlite-$(VERSION)-macos-universal.dmg
+PROXY ?= http://127.0.0.1:7890
 
 define APP_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -66,7 +67,8 @@ app: build build-ui icon
 	@codesign --force --deep -s - $(APP) >/dev/null 2>&1 || true
 	@echo "✔ $(APP)（双击运行：独立窗口 + Dock 图标 + 原生菜单）"
 
-# 发布包：universal（arm64 + x86_64）.app zip + SHA256，用于 GitHub Release
+# 发布包：universal（arm64 + x86_64）DMG 拖动安装窗口 + SHA256，用于 GitHub Release
+# DMG 布局：Postlite.app 与 Applications 双图标 + 品牌背景（Finder 布局脚本失败则降级默认布局）
 release: build-dist icon
 	@mkdir -p dist
 	go build -trimpath -ldflags "-s -w" -o bin/rel-server-arm64 .
@@ -83,10 +85,18 @@ release: build-dist icon
 	@cp $(ICON) dist/Postlite.app/Contents/Resources/AppIcon.icns
 	@echo "$$APP_PLIST" > dist/Postlite.app/Contents/Info.plist
 	@codesign --force --deep -s - dist/Postlite.app >/dev/null 2>&1 || true
-	@ln -sfn /Applications dist/Applications
-	@cd dist && zip -qry $(notdir $(ZIP)) Postlite.app Applications && rm -rf Postlite.app Applications
-	@cd dist && shasum -a 256 $(notdir $(ZIP)) | tee $(notdir $(basename $(ZIP)))-SHA256.txt
-	@echo "✔ $(ZIP)"
+	# —— DMG（dmgbuild：拖动安装窗口，无需 Finder 自动化授权；构建期 venv 依赖）——
+	swiftc -O -o build/make-dmg-bg scripts/make-dmg-bg.swift
+	build/make-dmg-bg build/dmg-bg.png
+	@rm -f $(DMG)
+	@if [ ! -x build/venv/bin/dmgbuild ]; then \
+		python3 -m venv build/venv && \
+		https_proxy=$(PROXY) http_proxy=$(PROXY) build/venv/bin/pip -q install dmgbuild; \
+	fi
+	build/venv/bin/dmgbuild -s scripts/dmg-settings.py "Postlite" $(DMG)
+	@cd dist && shasum -a 256 $(notdir $(DMG)) | tee $(notdir $(basename $(DMG)))-SHA256.txt
+	@rm -rf dist/Postlite.app
+	@echo "✔ $(DMG)（拖动安装窗口）"
 
 # 本地起服务（CLI 形态，不自动开浏览器）
 run: build
