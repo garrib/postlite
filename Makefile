@@ -5,8 +5,28 @@ UI_BIN := bin/Postlite
 ICON := build/AppIcon.icns
 APP := bin/Postlite.app
 DIST := frontend/dist
+ZIP := dist/Postlite-$(VERSION)-macos-universal.zip
 
-.PHONY: build build-dist build-ui icon app test run clean
+define APP_PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>Postlite</string>
+  <key>CFBundleIdentifier</key><string>xyz.garrib.postlite</string>
+  <key>CFBundleName</key><string>Postlite</string>
+  <key>CFBundleDisplayName</key><string>Postlite</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$(VERSION)</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict></plist>
+endef
+export APP_PLIST
+
+.PHONY: build build-dist build-ui icon app release test run clean
 
 # 构建前端产物（node_modules 缺失才走 npm ci，日常增量直接 vite build）
 build-dist:
@@ -35,38 +55,45 @@ test:
 	go test ./...
 	cd frontend && npm test
 
-# macOS .app（双击即用）：Swift 壳 + Go server + 图标
+# macOS .app（双击即用）：Swift 壳 + Go server + 图标（当前架构）
 app: build build-ui icon
 	@rm -rf $(APP)
 	@mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	@cp $(BIN) $(APP)/Contents/MacOS/postlite-server
 	@cp $(UI_BIN) $(APP)/Contents/MacOS/Postlite
 	@cp $(ICON) $(APP)/Contents/Resources/AppIcon.icns
-	@printf '%s\n' \
-		'<?xml version="1.0" encoding="UTF-8"?>' \
-		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-		'<plist version="1.0"><dict>' \
-		'  <key>CFBundleExecutable</key><string>Postlite</string>' \
-		'  <key>CFBundleIdentifier</key><string>xyz.garrib.postlite</string>' \
-		'  <key>CFBundleName</key><string>Postlite</string>' \
-		'  <key>CFBundleDisplayName</key><string>Postlite</string>' \
-		'  <key>CFBundlePackageType</key><string>APPL</string>' \
-		'  <key>CFBundleShortVersionString</key><string>$(VERSION)</string>' \
-		'  <key>CFBundleVersion</key><string>1</string>' \
-		'  <key>CFBundleIconFile</key><string>AppIcon</string>' \
-		'  <key>NSPrincipalClass</key><string>NSApplication</string>' \
-		'  <key>LSMinimumSystemVersion</key><string>12.0</string>' \
-		'  <key>NSHighResolutionCapable</key><true/>' \
-		'</dict></plist>' > $(APP)/Contents/Info.plist
+	@echo "$$APP_PLIST" > $(APP)/Contents/Info.plist
 	@codesign --force --deep -s - $(APP) >/dev/null 2>&1 || true
 	@echo "✔ $(APP)（双击运行：独立窗口 + Dock 图标 + 原生菜单）"
+
+# 发布包：universal（arm64 + x86_64）.app zip + SHA256，用于 GitHub Release
+release: build-dist icon
+	@mkdir -p dist
+	go build -trimpath -ldflags "-s -w" -o bin/rel-server-arm64 .
+	GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o bin/rel-server-x86_64 .
+	lipo -create -output bin/rel-server bin/rel-server-arm64 bin/rel-server-x86_64
+	# 本机 CLT swiftc 不认多 -arch，用 -target 分别编译再 lipo（PostliteApp.swift 无架构相关代码）
+	swiftc -O -parse-as-library -target arm64-apple-macos12.0 -o bin/rel-shell-arm64 ui/PostliteApp.swift
+	swiftc -O -parse-as-library -target x86_64-apple-macos12.0 -o bin/rel-shell-x86_64 ui/PostliteApp.swift
+	lipo -create -output bin/rel-shell bin/rel-shell-arm64 bin/rel-shell-x86_64
+	@rm -rf dist/Postlite.app
+	@mkdir -p dist/Postlite.app/Contents/MacOS dist/Postlite.app/Contents/Resources
+	@cp bin/rel-server dist/Postlite.app/Contents/MacOS/postlite-server
+	@cp bin/rel-shell dist/Postlite.app/Contents/MacOS/Postlite
+	@cp $(ICON) dist/Postlite.app/Contents/Resources/AppIcon.icns
+	@echo "$$APP_PLIST" > dist/Postlite.app/Contents/Info.plist
+	@codesign --force --deep -s - dist/Postlite.app >/dev/null 2>&1 || true
+	@ln -sfn /Applications dist/Applications
+	@cd dist && zip -qry $(notdir $(ZIP)) Postlite.app Applications && rm -rf Postlite.app Applications
+	@cd dist && shasum -a 256 $(notdir $(ZIP)) | tee $(notdir $(basename $(ZIP)))-SHA256.txt
+	@echo "✔ $(ZIP)"
 
 # 本地起服务（CLI 形态，不自动开浏览器）
 run: build
 	POSTLITE_NO_OPEN=1 $(BIN)
 
 clean:
-	rm -rf bin build
+	rm -rf bin dist build
 	rm -rf $(DIST)
 	mkdir -p $(DIST)
 	touch $(DIST)/.gitkeep
