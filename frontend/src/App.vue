@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BodyEditor from './components/BodyEditor.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
 import KvEditor from './components/KvEditor.vue'
@@ -7,7 +7,7 @@ import MethodSelect from './components/MethodSelect.vue'
 import ResponseView from './components/ResponseView.vue'
 import { ApiError, clearHistory, deleteHistory, listHistory, sendRequest } from './lib/api'
 import { toCurl } from './lib/curlExport'
-import { copyText } from './lib/platform'
+import { copyText, isNativeApp, onNativeSetOptions, postOptions } from './lib/platform'
 import { parseCurl } from './lib/curlParse'
 import { buildUrl, parseUrl, type ParamRow } from './lib/params'
 import { useClickOutside } from './lib/useClickOutside'
@@ -30,10 +30,24 @@ const sending = ref(false)
 const resp = ref<ApiResponse | null>(null)
 const sendError = ref('')
 
-// 左上角「设置」下拉：发送选项收于此处（design.md §4.3）。
+// 左上角「设置」下拉：仅浏览器（CLI）形态显示；.app 内用系统菜单栏「设置…⌘,」原生面板。
+const nativeApp = isNativeApp()
 const settingsOpen = ref(false)
 const settingsRoot = ref<HTMLElement | null>(null)
 useClickOutside(settingsRoot, () => (settingsOpen.value = false))
+
+// 原生面板 → Web：Swift evaluateJavaScript 调这里。
+onNativeSetOptions((o) => {
+  env.value.options = { ...env.value.options, ...o }
+})
+// Web → 原生面板：选项变更即推（初始挂载后也推一次）。
+watch(
+  () => env.value.options,
+  (o) => {
+    if (nativeApp) postOptions(o)
+  },
+  { deep: true },
+)
 
 const tab = ref<'params' | 'headers' | 'body'>('body')
 
@@ -183,6 +197,7 @@ const enabledParamCount = computed(() => paramRows.value.filter((r) => r.enabled
 
 onMounted(() => {
   reparseUrl()
+  if (nativeApp) postOptions(env.value.options)
   void refreshHistory()
 })
 </script>
@@ -191,7 +206,7 @@ onMounted(() => {
   <div class="app-shell" @keydown="onKeySend">
     <div class="topbar">
       <div class="topbar-left">
-        <div ref="settingsRoot" class="settings-root">
+        <div v-if="!nativeApp" ref="settingsRoot" class="settings-root">
           <button type="button" class="ghost settings-btn" @click="settingsOpen = !settingsOpen">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3" />

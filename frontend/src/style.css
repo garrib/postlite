@@ -366,6 +366,13 @@ label.settings-row:hover { background: var(--panel); }
   color: #33383f;
   background: #fff;
 }
+
+/* JSON 语法高亮（浅色调色板，design.md §4.3） */
+.j-key { color: #7c4dbe; }
+.j-str { color: #22803a; }
+.j-num { color: #1a63b5; }
+.j-bool { color: #c2559d; }
+.j-null { color: #986f0b; }
 .resp-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
 
 .error-box {

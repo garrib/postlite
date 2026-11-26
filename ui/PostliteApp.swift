@@ -1,7 +1,7 @@
 // ui/PostliteApp.swift
 // Postlite 原生壳：WKWebView 窗口 + postlite-server（Go）子进程。
-// 架构与约束见 docs/design.md §4（双进程模型 / 父进程监控 / 原生下载桥）。
-// 构建：swiftc -O -o Postlite ui/PostliteApp.swift（单文件直编，不经 SPM）。
+// 架构与约束见 docs/design.md §4（双进程模型 / 父进程监控 / 原生桥 / 设置面板）。
+// 构建：swiftc -O -parse-as-library -o Postlite ui/PostliteApp.swift（单文件直编，不经 SPM）。
 
 import Cocoa
 import WebKit
@@ -13,6 +13,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var webView: WKWebView?
     private var server: Process?
     private var terminating = false
+
+    // —— 发送选项（与 Web 双向同步，design.md §4.3）——
+    private var optFollow = false
+    private var optInsecure = false
+    private var optTimeoutMs = 0
+
+    // —— 原生设置面板 ——
+    private var settingsWindow: NSWindow?
+    private var followCheck: NSButton?
+    private var insecureCheck: NSButton?
+    private var timeoutField: NSTextField?
 
     static func main() {
         let app = NSApplication.shared
@@ -147,10 +158,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let name = body["name"] as? String else { return }
-        if name == "download",
-           let base64 = body["base64"] as? String,
-           let filename = body["filename"] as? String {
-            saveFile(base64: base64, filename: filename)
+        switch name {
+        case "download":
+            if let base64 = body["base64"] as? String, let filename = body["filename"] as? String {
+                saveFile(base64: base64, filename: filename)
+            }
+        case "options":
+            // Web → 原生：Web UI 里选项变更时同步到本地与面板。
+            if let f = body["followRedirects"] as? Bool { optFollow = f }
+            if let i = body["insecureSkipVerify"] as? Bool { optInsecure = i }
+            if let t = body["timeoutMs"] as? NSNumber { optTimeoutMs = t.intValue }
+            syncSettingsControls()
+        default:
+            break
         }
     }
 
@@ -166,6 +186,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         }
     }
 
+    // MARK: - 原生设置面板（系统菜单栏「设置…⌘,」）
+
+    @objc private func showSettings() {
+        if settingsWindow == nil { buildSettingsWindow() }
+        syncSettingsControls()
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func buildSettingsWindow() {
+        let follow = NSButton(checkboxWithTitle: "跟随重定向（curl -L）", target: self, action: #selector(settingChanged))
+        let insecure = NSButton(checkboxWithTitle: "跳过证书校验（curl -k）", target: self, action: #selector(settingChanged))
+
+        let timeoutLabel = NSTextField(labelWithString: "超时 ms")
+        timeoutLabel.alignment = .right
+        let field = NSTextField()
+        field.placeholderString = "0"
+        field.target = self
+        field.action = #selector(settingChanged)
+        let timeoutHint = NSTextField(labelWithString: "0 = 不限（服务端硬顶 300s）")
+        timeoutHint.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        timeoutHint.textColor = .secondaryLabelColor
+
+        let timeoutRow = NSStackView(views: [timeoutLabel, field])
+        timeoutRow.orientation = .horizontal
+        timeoutRow.spacing = 8
+        timeoutRow.translatesAutoresizingMaskIntoConstraints = false
+        field.widthAnchor.constraint(equalToConstant: 96).isActive = true
+
+        let hint = NSTextField(labelWithString: "选项与请求表单实时同步，下次发送即生效。")
+        hint.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        hint.textColor = .secondaryLabelColor
+
+        let stack = NSStackView(views: [follow, insecure, timeoutRow, timeoutHint, hint])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+        stack.edgeInsets = NSEdgeInsets(top: 22, left: 24, bottom: 18, right: 24)
+        stack.setCustomSpacing(6, after: timeoutRow)
+
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 190),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        w.title = "Postlite 设置"
+        w.contentView = stack
+        w.center()
+        settingsWindow = w
+        followCheck = follow
+        insecureCheck = insecure
+        timeoutField = field
+    }
+
+    @objc private func settingChanged() {
+        optFollow = followCheck?.state == .on
+        optInsecure = insecureCheck?.state == .on
+        optTimeoutMs = Int(timeoutField?.stringValue ?? "") ?? 0
+        pushOptionsToWeb()
+    }
+
+    /// 原生 → Web：面板变更推给 Web UI（window.__postliteSetOptions）。
+    private func pushOptionsToWeb() {
+        let js = "window.__postliteSetOptions&&window.__postliteSetOptions({followRedirects:\(optFollow),insecureSkipVerify:\(optInsecure),timeoutMs:\(optTimeoutMs)})"
+        webView?.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    /// Web 状态 → 面板控件（面板开着时保持一致）。
+    private func syncSettingsControls() {
+        guard let w = settingsWindow, w.isVisible else { return }
+        followCheck?.state = optFollow ? .on : .off
+        insecureCheck?.state = optInsecure ? .on : .off
+        if timeoutField?.currentEditor() == nil { // 用户正在输入时不打断
+            timeoutField?.stringValue = optTimeoutMs > 0 ? String(optTimeoutMs) : ""
+        }
+    }
+
     // MARK: - 菜单（Edit 菜单是 WKWebView 文本编辑快捷键生效的前提）
 
     private func buildMenu() {
@@ -173,9 +271,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "关于 Postlite", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let about = NSMenuItem(title: "关于 Postlite", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(about)
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "退出 Postlite", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let settings = NSMenuItem(title: "设置…", action: #selector(showSettings), keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(settings)
+        appMenu.addItem(.separator())
+        let quit = NSMenuItem(title: "退出 Postlite", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(quit)
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 

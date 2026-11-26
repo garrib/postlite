@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 响应查看器：状态、耗时、大小、响应头、Body（Pretty / Raw / 复制 / 下载走平台桥）。
 import { computed, ref } from 'vue'
+import { highlightJson } from '../lib/highlightJson'
 import { copyText, filenameFor, platformDownload } from '../lib/platform'
 import type { ApiResponse } from '../lib/types'
 
@@ -28,6 +29,17 @@ const prettyBody = computed(() => {
     return JSON.stringify(JSON.parse(r.bodyText), null, 2)
   } catch {
     return r.bodyText
+  }
+})
+
+// 合法 JSON 且 Pretty 模式 → 语法高亮 HTML（highlightJson 已先转义，v-html 安全）。
+const prettyHtml = computed(() => {
+  const r = props.resp
+  if (!r || !r.isText || mode.value !== 'pretty') return null
+  try {
+    return highlightJson(JSON.stringify(JSON.parse(r.bodyText), null, 2))
+  } catch {
+    return null // 非法 JSON 回退纯文本
   }
 })
 
@@ -87,7 +99,8 @@ function download() {
         <div class="tab" :class="{ active: mode === 'pretty' }" @click="mode = 'pretty'">Pretty</div>
         <div class="tab" :class="{ active: mode === 'raw' }" @click="mode = 'raw'">Raw</div>
       </div>
-      <pre v-if="resp.isText" class="resp-body">{{ prettyBody }}</pre>
+      <pre v-if="prettyHtml !== null" class="resp-body" v-html="prettyHtml"></pre>
+      <pre v-else-if="resp.isText" class="resp-body">{{ prettyBody }}</pre>
       <div v-else class="resp-empty">
         二进制内容（{{ sizeLabel }}），点右上「下载」保存。
       </div>

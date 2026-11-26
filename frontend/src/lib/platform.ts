@@ -51,6 +51,23 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** 发送选项（原生设置面板 ↔ Web 双向同步，design.md §4.3）。 */
+export interface SendOptions {
+  followRedirects: boolean
+  insecureSkipVerify: boolean
+  timeoutMs: number
+}
+
+/** Web → 原生：选项变更时推给原生面板。 */
+export function postOptions(o: SendOptions): void {
+  bridge()?.messageHandlers.postlite.postMessage({ name: 'options', ...o })
+}
+
+/** 原生 → Web：注册原生面板回调（Swift 侧 evaluateJavaScript 调 __postliteSetOptions）。 */
+export function onNativeSetOptions(cb: (o: Partial<SendOptions>) => void): void {
+  ;(window as unknown as { __postliteSetOptions?: unknown }).__postliteSetOptions = cb
+}
+
 /** 由 Content-Type 推断下载文件名扩展。 */
 export function filenameFor(contentType: string): string {
   const ct = (contentType || '').split(';')[0].trim().toLowerCase()
