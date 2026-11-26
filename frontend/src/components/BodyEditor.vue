@@ -30,7 +30,7 @@ function patch(p: Partial<Body>) {
 }
 
 const jsonValid = computed(() => {
-  if (props.body.type !== 'json' || props.body.text.trim() === '') return null
+  if (props.body.type !== 'json' || (props.body.text ?? '').trim() === '') return null
   try {
     JSON.parse(props.body.text)
     return true
@@ -41,21 +41,21 @@ const jsonValid = computed(() => {
 
 function formatJson() {
   try {
-    patch({ text: JSON.stringify(JSON.parse(props.body.text), null, 2) })
+    patch({ text: JSON.stringify(JSON.parse(props.body.text ?? ''), null, 2) })
   } catch {
     /* 不动：非法 JSON 保持原样 */
   }
 }
 
-const urlFields = computed(() => props.body.fields.filter((f) => f.type !== 'file'))
-const formFields = computed(() => props.body.fields)
+const urlFields = computed(() => (props.body.fields ?? []).filter((f) => f.type !== 'file'))
+const formFields = computed(() => props.body.fields ?? [])
 
 function setFields(fields: BodyField[]) {
   patch({ fields })
 }
 
 // form-data 默认显示一行空行（design.md §4.3）：空行不发送，「＋」按钮加行。
-const displayFields = computed(() => (props.body.fields.length === 0 ? [emptyField()] : props.body.fields))
+const displayFields = computed(() => ((props.body.fields ?? []).length === 0 ? [emptyField()] : props.body.fields))
 
 // KvEditor 产出纯 KV 行；回填成完整 BodyField（urlencoded 恒为文本字段）。
 function onUrlRows(rows: Array<{ name: string; value: string; enabled: boolean }>) {
@@ -73,20 +73,20 @@ function onUrlRows(rows: Array<{ name: string; value: string; enabled: boolean }
 }
 
 function setField(i: number, p: Partial<BodyField>) {
-  const base = props.body.fields.length === 0 ? [emptyField()] : props.body.fields
+  const base = (props.body.fields ?? []).length === 0 ? [emptyField()] : props.body.fields
   setFields(base.map((f, idx) => (idx === i ? { ...f, ...p } : f)))
 }
 
 function addField(type: 'text' | 'file') {
   setFields([
-    ...props.body.fields,
+    ...(props.body.fields ?? []),
     { name: '', value: '', enabled: true, type, fileName: '', contentType: '', contentBase64: '' },
   ])
 }
 
 function removeField(i: number) {
-  if (props.body.fields.length === 0) return // 引导空行不可删
-  setFields(props.body.fields.filter((_, idx) => idx !== i))
+  if ((props.body.fields ?? []).length === 0) return // 引导空行不可删
+  setFields((props.body.fields ?? []).filter((_, idx) => idx !== i))
 }
 
 async function pickFile(i: number, ev: Event) {
@@ -107,7 +107,8 @@ const binaryName = ref('')
 
 // 请求 json 编辑器：透明 textarea 叠加高亮层（design.md §4.3），同步滚动。
 const highlightEl = ref<HTMLElement | null>(null)
-const bodyHtml = computed(() => (props.body.text === '' ? '' : highlightJson(props.body.text)))
+const bodyText = computed(() => props.body.text ?? '')
+const bodyHtml = computed(() => (bodyText.value === '' ? '' : highlightJson(bodyText.value)))
 function syncScroll(ev: Event) {
   const ta = ev.target as HTMLTextAreaElement
   if (highlightEl.value) {
@@ -148,13 +149,13 @@ function fieldSizeLabel(f: BodyField): string {
         <div style="margin-bottom: 6px; display: flex; gap: 8px; align-items: center">
           <button @click="formatJson">格式化</button>
           <span v-if="jsonValid === false" style="color: var(--danger)">JSON 非法（仍可按原文发送）</span>
-          <span v-else-if="body.text.trim() !== ''" style="color: var(--text-dim)">JSON 合法</span>
+          <span v-else-if="bodyText.trim() !== ''" style="color: var(--text-dim)">JSON 合法</span>
         </div>
         <div class="code-editor">
           <pre ref="highlightEl" class="code-highlight" aria-hidden="true" v-html="bodyHtml"></pre>
           <textarea
             class="code-input"
-            :value="body.text"
+            :value="bodyText"
             placeholder='请求体 JSON，如 {"key": "value"}'
             spellcheck="false"
             @input="patch({ text: ($event.target as HTMLTextAreaElement).value })"

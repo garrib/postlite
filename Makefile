@@ -1,4 +1,4 @@
-VERSION ?= 0.2.5
+VERSION ?= 0.2.6
 # 注意：macOS APFS 大小写不敏感，bin/postlite 与 bin/Postlite 会撞名——Go 产物用 postlite-server。
 BIN := bin/postlite-server
 UI_BIN := bin/Postlite

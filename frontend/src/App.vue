@@ -9,6 +9,7 @@ import { ApiError, clearHistory, deleteHistory, listHistory, sendRequest } from 
 import { toCurl } from './lib/curlExport'
 import { copyText, isNativeApp, onNativeRefreshHistory, onNativeSetOptions, postOptions } from './lib/platform'
 import { parseCurl } from './lib/curlParse'
+import { requestFromHistory } from './lib/normalize'
 import { buildUrl, parseUrl, type ParamRow } from './lib/params'
 import { useClickOutside } from './lib/useClickOutside'
 import {
@@ -148,15 +149,9 @@ async function refreshHistory() {
 }
 
 function loadHistory(rec: HistoryRecord) {
-  // 旧历史可能含 none 类型（v0.2.4 起移除），映射为空 json
-  const legacyType = rec.request.body.type as string
-  env.value = {
-    method: rec.request.method,
-    url: rec.request.url,
-    headers: rec.request.headers.map((h) => ({ ...h })),
-    body: { ...rec.request.body, type: legacyType === 'none' ? 'json' : legacyType } as Body,
-    options: { ...rec.request.options },
-  }
+  // 后端 omitempty 会省略空字段（headers/body.text/fields/options 可能缺失），
+  // 必须归一化（v0.2.6 修「回填后 Body 页空白」）；none 类型映射为空 json。
+  env.value = requestFromHistory(rec.request as never)
   reparseUrl()
   resp.value = null
   sendError.value = ''

@@ -90,6 +90,18 @@
 | T3 | urlencoded/ form-data 信封构建 | 与 api.md §1 字段逐一对齐 |
 | T4 | curl 导出 | 表单→curl 字符串可再被自己的 parser 还原（round-trip） |
 
+### 3.4b 历史回填归一化（normalize.ts，T5）
+
+后端 JSON `omitempty` 会省略空字段，回填必须归一化（v0.2.6 修「回填后 Body 页空白」）：
+
+| # | 用例 | 断言 |
+|---|---|---|
+| T5a | headers 缺失/undefined | → `[]`，loadHistory 不抛错 |
+| T5b | body.text / fields / mime 缺失 | → `''` / `[]` / `''`，BodyEditor 可渲染 |
+| T5c | body.type 缺失或 none | → `'json'`（v0.2.4 起 UI 无 none） |
+| T5d | options 缺失 | → `{timeoutMs:0, followRedirects:false, insecureSkipVerify:false}` |
+| T5e | 完整信封原样透传 | 字段不丢（enabled=false 等保留） |
+
 ### 3.5 平台桥 platform.ts
 
 | # | 用例 | 断言 |
