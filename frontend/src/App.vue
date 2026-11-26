@@ -29,6 +29,7 @@ const paramHash = ref('')
 const sending = ref(false)
 const resp = ref<ApiResponse | null>(null)
 const sendError = ref('')
+const serverVersion = ref('')
 
 // 左上角「设置」下拉：仅浏览器（CLI）形态显示；.app 内用系统菜单栏「设置…⌘,」原生面板。
 const nativeApp = isNativeApp()
@@ -100,29 +101,28 @@ async function send() {
   }
 }
 
-// ———— cURL 导入 / 导出 ————
+// ———— cURL 导入（粘贴自动识别）/ 导出（icon 按钮） ————
 
-const showImport = ref(false)
-const importText = ref('')
-const importWarnings = ref<string[]>([])
+// URL 输入框粘贴 curl 命令 → 自动导入为表单（design.md §2.1，无独立入口）。
+const curlWarnings = ref<string[]>([])
 
-function openImport() {
-  importText.value = toCurl(env.value)
-  importWarnings.value = []
-  showImport.value = true
+function onUrlPaste(ev: ClipboardEvent) {
+  const text = ev.clipboardData?.getData('text') ?? ''
+  if (/^\s*curl(\.exe)?(\s|$)/i.test(text)) {
+    ev.preventDefault()
+    importCurl(text)
+  }
 }
 
-function applyImport() {
-  const parsed = parseCurl(importText.value)
+function importCurl(text: string) {
+  const parsed = parseCurl(text)
   const { warnings, ...parsedEnv } = parsed
   env.value = { ...parsedEnv, headers: parsedEnv.headers.map((h) => ({ ...h })), body: { ...parsedEnv.body } }
   reparseUrl()
-  importWarnings.value = warnings
-  if (warnings.length === 0) showImport.value = false
-}
-
-function closeImport() {
-  showImport.value = false
+  curlWarnings.value = warnings
+  resp.value = null
+  sendError.value = ''
+  toast(warnings.length ? `已导入 cURL（${warnings.length} 条提醒）` : '已导入 cURL')
 }
 
 async function copyCurl() {
@@ -199,6 +199,11 @@ onMounted(() => {
   reparseUrl()
   if (nativeApp) postOptions(env.value.options)
   void refreshHistory()
+  // 版本号从服务端取（与 config.Version 同源，不再写死）
+  void fetch('/api/health')
+    .then((r) => r.json())
+    .then((h) => (serverVersion.value = h?.version ?? ''))
+    .catch(() => {})
 })
 </script>
 
@@ -235,7 +240,7 @@ onMounted(() => {
         <div class="logo"><span class="brand-post">Post</span><span class="brand-lite">lite</span></div>
       </div>
       <div class="spacer"></div>
-      <div class="version-tag mono">v0.2.1</div>
+      <div v-if="serverVersion" class="version-tag mono">v{{ serverVersion }}</div>
     </div>
 
     <div class="url-bar">
@@ -244,13 +249,24 @@ onMounted(() => {
         class="url"
         v-model="env.url"
         type="text"
-        placeholder="https://api.example.com/v1/anything"
+        placeholder="https://api.example.com/v1/anything（粘贴 curl 命令可自动导入）"
         spellcheck="false"
         @change="onUrlChange"
+        @paste="onUrlPaste"
       />
       <button class="primary" :disabled="sending" @click="send()">{{ sending ? '发送中…' : '发送 ⌘↵' }}</button>
-      <button class="ghost" @click="openImport">导入 cURL</button>
-      <button class="ghost" @click="copyCurl">复制 cURL</button>
+      <button class="ghost icon-btn" title="复制 cURL 命令" @click="copyCurl">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6" />
+          <polyline points="8 6 2 12 8 18" />
+        </svg>
+      </button>
+    </div>
+
+    <div v-if="curlWarnings.length" class="curl-warn">
+      <span class="cw-title">cURL 提醒</span>
+      <span class="cw-text">{{ curlWarnings.join('；') }}</span>
+      <button class="row-del" title="关闭" @click="curlWarnings = []">✕</button>
     </div>
 
     <div class="main-split">
@@ -295,24 +311,6 @@ onMounted(() => {
           <div v-if="sending" class="resp-empty">发送中…</div>
           <div v-else-if="sendError" class="error-box">{{ sendError }}</div>
           <ResponseView v-else :resp="resp" />
-        </div>
-      </div>
-    </div>
-
-    <div v-if="showImport" class="modal-mask" @click.self="closeImport">
-      <div class="modal">
-        <h3>粘贴 cURL 命令（支持 bash / cmd / PowerShell 复制出来的格式）</h3>
-        <textarea
-          v-model="importText"
-          spellcheck="false"
-          placeholder="curl 'https://api.example.com/x' -H 'Accept: application/json' --data-raw '{...}'"
-        ></textarea>
-        <div v-if="importWarnings.length" class="warn-list">
-          <div v-for="(w, i) in importWarnings" :key="i">⚠ {{ w }}</div>
-        </div>
-        <div class="actions">
-          <button class="ghost" @click="closeImport">取消</button>
-          <button class="primary" @click="applyImport">解析并应用</button>
         </div>
       </div>
     </div>

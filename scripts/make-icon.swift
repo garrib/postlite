@@ -38,10 +38,10 @@ func render(_ px: CGFloat) -> CGImage? {
     ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
     ctx.clip()
 
-    // 底：Postman 橙垂直渐变
+    // 底：品牌主色垂直渐变（#1E4A41 → #112A25，design.md §4.3）
     let colors = [
-        CGColor(red: 1.00, green: 0.50, blue: 0.29, alpha: 1),
-        CGColor(red: 0.93, green: 0.34, blue: 0.16, alpha: 1),
+        CGColor(red: 0.118, green: 0.290, blue: 0.255, alpha: 1),
+        CGColor(red: 0.067, green: 0.165, blue: 0.145, alpha: 1),
     ]
     if let grad = CGGradient(colorsSpace: space, colors: colors as CFArray, locations: [0, 1]) {
         ctx.drawLinearGradient(
@@ -63,8 +63,8 @@ func render(_ px: CGFloat) -> CGImage? {
     ctx.addLine(to: pt(0.60, 0.80))
     ctx.closePath()
     ctx.fillPath()
-    // 机身折角（深一号橙，压出层次）
-    ctx.setFillColor(CGColor(red: 0.88, green: 0.30, blue: 0.14, alpha: 1))
+    // 机身折角（深一号主色，压出层次）
+    ctx.setFillColor(CGColor(red: 0.051, green: 0.125, blue: 0.106, alpha: 1))
     ctx.move(to: pt(0.47, 0.63))
     ctx.addLine(to: pt(0.60, 0.80))
     ctx.addLine(to: pt(0.38, 0.75))

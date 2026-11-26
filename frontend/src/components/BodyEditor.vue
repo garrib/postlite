@@ -2,8 +2,15 @@
 // 请求体编辑器：none / json / x-www-form-urlencoded / form-data / raw / binary（api.md §1）。
 import { computed, ref } from 'vue'
 import KvEditor from './KvEditor.vue'
+import PopSelect from './PopSelect.vue'
 import { fileToBase64 } from '../lib/api'
-import type { Body, BodyField } from '../lib/types'
+import type { Body, BodyField, PopOption } from '../lib/types'
+
+// form-data 字段类型下拉复用 PopSelect（design.md §4.3）
+const TYPE_OPTS: PopOption[] = [
+  { value: 'text', label: '文本' },
+  { value: 'file', label: '文件' },
+]
 
 const props = defineProps<{ body: Body }>()
 const emit = defineEmits<{ (e: 'update:body', v: Body): void }>()
@@ -150,10 +157,12 @@ function fieldSizeLabel(f: BodyField): string {
           <div v-for="(f, i) in formFields" :key="i" class="fd-row" :class="{ disabled: !f.enabled }">
             <input type="checkbox" :checked="f.enabled" title="启用/禁用此字段" @change="setField(i, { enabled: !f.enabled })" />
             <input class="fd-name" type="text" :value="f.name" placeholder="字段名" @input="setField(i, { name: ($event.target as HTMLInputElement).value })" />
-            <select class="fd-type" :value="f.type" @change="setField(i, { type: ($event.target as HTMLSelectElement).value as 'text' | 'file' })">
-              <option value="text">文本</option>
-              <option value="file">文件</option>
-            </select>
+            <PopSelect
+              class="fd-type-pop"
+              :model-value="f.type"
+              :options="TYPE_OPTS"
+              @update:model-value="setField(i, { type: $event as 'text' | 'file' })"
+            />
             <div class="fd-value">
               <template v-if="f.type === 'file'">
                 <label v-if="!f.contentBase64" class="fd-file-btn">

@@ -1,5 +1,12 @@
 // 与 docs/api.md §1 请求信封逐字段对齐的前端类型。
 
+/** PopSelect 通用下拉的选项（cls = 附加着色类，如 msel-get）。 */
+export interface PopOption {
+  value: string
+  label: string
+  cls?: string
+}
+
 export interface Header {
   name: string
   value: string

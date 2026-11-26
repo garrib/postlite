@@ -18,12 +18,12 @@
 | 能力 | 说明 |
 |---|---|
 | 原生 Mac 窗口 | WKWebView 壳 + Go server 子进程双进程模型；独立窗口、Dock 图标、原生菜单、原生保存面板，无浏览器痕迹 |
-| curl 导入 | 粘贴 bash / zsh / Windows cmd / PowerShell 复制出的 curl 命令，解析为表单 |
+| curl 导入 | 把 curl 命令（bash / zsh / Windows cmd / PowerShell 方言）直接**粘贴进 URL 输入框**，识别 `curl` 前缀自动导入为表单，无独立入口；无法映射的旗标以 URL 栏下可关闭条幅提醒 |
 | 表单化请求编辑 | 方法、URL、Query 参数表、Header 表、Body（5 种类型） |
 | 代理发送 | 由本地 Go 服务转发请求，绕开浏览器 CORS / 混合内容限制 |
 | 响应查看 | 状态码、耗时、大小、响应头、响应体（Pretty / Raw / 复制） |
 | 历史 | 平铺、按时间倒序、可检索、可回填；保留最近 7 天，自动清理 |
-| curl 导出 | 把当前表单反向生成 curl 命令（复制） |
+| curl 导出 | URL 栏 icon 按钮（代码图标）一键复制当前表单反向生成的 curl 命令 |
 
 ### 2.2 不做（Out）
 
@@ -101,16 +101,16 @@ done/error ──再次send──▶ sending（响应区切回 loading）
 
 - 整体浅色：白底主区、`#FAFBFC` 侧栏、`#E4E6EA` 分隔线、`#21252B` 主文本、`#6B7280` 次级文本。
 - 品牌主色深松绿 `#112A25`（即 `color(srgb 0.0658 0.1631 0.1447)`）：Send 按钮、Tab 激活下划线、输入框 focus ring、checkbox、logo 的「lite」。
-- 品牌字标：Postlite —— Post 700 加粗（主文本色）、lite 300 细体（主色）。
+- 品牌字标：Postlite —— 整体用主色：Post 700 加粗、lite 300 细体（均 `#112A25`）。
 - 方法配色：GET `#00A67D` · POST `#E8930C` · PUT `#2D8CFF` · PATCH `#8E5CE6` · DELETE `#EF4444` · 其他 `#6B7280`（历史列表、方法下拉同步着色）。
-- 方法选择器为自绘下拉组件：按钮态 = 方法色粗体文本 + caret；展开列表逐项方法色 + 当前项勾选；点击外部/Esc 关闭。
+- 下拉统一用自绘组件 `PopSelect`：按钮态 = 当前项（可着色）+ caret，展开列表逐项着色 + 当前项勾选，点击外部/Esc 关闭、↑↓ + Enter 键盘可达；方法选择器（按钮宽度自适应，GET/POST 紧凑）与 form-data 文本/文件类型下拉均复用它。
 - 发送选项（跟随重定向 / 跳过证书校验 / 超时 ms）在 **macOS 系统菜单栏**：应用菜单内「设置…（⌘,）」打开原生设置面板，与 Web 状态双向同步（Web → 原生走 bridge 消息 `options`；原生 → Web 走 `window.__postliteSetOptions`）；浏览器（CLI）形态无原生菜单，回退为左上角「设置」下拉。
 - Params / Headers / x-www-form-urlencoded 表：**空表时显示一行空行**（占位符引导），输入即建行，不做纯空白；form-data 空态显示引导文案。
 - 响应 Body 的 Pretty 视图对合法 JSON 做语法高亮：key / 字符串 / 数字 / 布尔 / null 分色；实现为先 HTML 转义再包 span（防注入），非法 JSON 按纯文本展示。
 - form-data 编辑行为栅格行：启用框 / 字段名 / 类型（文本|文件）/ 值区 / 删除；文件字段选中后显示「图标 + 文件名 + 大小」chip，可「换」重选、可 ✕ 清除内容；底部「＋ 文本字段 / ＋ 文件字段」。
 - 布局仿 Postman：左侧历史侧栏（280px，检索/回填）→ 中栏上请求区（URL 栏在顶 + Params/Headers/Body Tab，Body 类型为分段式胶囊）→ 下响应区（状态行 + Body/Headers Tab）；Toast 用深色浮层做对比。
 - 原生桥（仅 .app 内生效）：`window.webkit.messageHandlers.postlite`；消息 `{name:'download', filename, base64}` → NSSavePanel 原生保存；浏览器形态回退 `<a download>`；剪贴板在 navigator.clipboard 失败时 execCommand 兜底。
-- 应用图标：macOS Big Sur 风格 squircle（透明画布 10% 边距、圆角 22.37%），Postman 橙渐变底 + 白色纸飞机；`scripts/make-icon.swift` 生成 iconset 后 `iconutil` 转 icns。
+- 应用图标：macOS Big Sur 风格 squircle（透明画布 10% 边距、圆角 22.37%），**品牌主色渐变底（#1E4A41 → #112A25）+ 白色纸飞机**；`scripts/make-icon.swift` 生成 iconset 后 `iconutil` 转 icns。
 
 ## 5. 安全边界
 

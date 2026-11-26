@@ -102,10 +102,10 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .topbar .spacer { flex: 1; }
 .version-tag { font-size: 11px; color: #b6bcc4; }
 
-/* 品牌字标：Post 700 / lite 300（主色） */
-.logo { font-size: 15px; letter-spacing: 0.3px; user-select: none; }
-.logo .brand-post { font-weight: 700; color: var(--text); }
-.logo .brand-lite { font-weight: 300; color: var(--accent); }
+/* 品牌字标：整体主色——Post 700 / lite 300 */
+.logo { font-size: 15px; letter-spacing: 0.3px; user-select: none; color: var(--accent); }
+.logo .brand-post { font-weight: 700; }
+.logo .brand-lite { font-weight: 300; }
 
 /* ———— 左上角「设置」下拉 ———— */
 
@@ -160,24 +160,22 @@ label.settings-row:hover { background: var(--panel); }
   margin-top: 4px;
 }
 
-/* ———— 方法选择器（自绘下拉） ———— */
+/* ———— PopSelect 通用自绘下拉 ———— */
 
-.method-root { position: relative; outline: none; }
-.method-btn {
+.pop-root { position: relative; outline: none; display: inline-block; }
+.pop-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  width: 116px;
   padding: 6px 10px;
   font-weight: 700;
   font-size: 12.5px;
   background: #fff;
 }
-.method-btn:hover { border-color: var(--border-strong); background: #fff; }
-.method-btn .caret { font-size: 9px; color: #9aa1ab; transition: transform 0.12s; }
-.method-btn .caret.open { transform: rotate(180deg); }
-.method-menu {
+.pop-btn:hover { border-color: var(--border-strong); background: #fff; }
+.pop-btn .caret { font-size: 9px; color: #9aa1ab; transition: transform 0.12s; }
+.pop-btn .caret.open { transform: rotate(180deg); }
+.pop-menu {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -189,7 +187,7 @@ label.settings-row:hover { background: var(--panel); }
   box-shadow: var(--shadow);
   padding: 4px;
 }
-.method-item {
+.pop-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -200,8 +198,8 @@ label.settings-row:hover { background: var(--panel); }
   font-size: 12.5px;
   color: var(--text);
 }
-.method-item.active { background: var(--accent-soft); }
-.method-item .check { color: var(--accent); font-size: 11px; }
+.pop-item.active { background: var(--accent-soft); }
+.pop-item .check { color: var(--accent); font-size: 11px; }
 
 /* 方法配色（选择器/历史/其他统一） */
 .msel-get { color: var(--m-get); }
@@ -287,9 +285,10 @@ label.settings-row:hover { background: var(--panel); }
 }
 .fd-row:hover { background: var(--panel); }
 .fd-row.disabled .fd-name,
-.fd-row.disabled .fd-type,
+.fd-row.disabled .fd-type-pop,
 .fd-row.disabled .fd-value { opacity: 0.5; }
-.fd-row .fd-name, .fd-row .fd-type { height: 30px; }
+.fd-row .fd-name { height: 30px; }
+.fd-row .fd-type-pop .pop-btn { width: 76px; justify-content: space-between; height: 30px; padding-top: 4px; padding-bottom: 4px; }
 .fd-row .fd-value input[type='text'] { width: 100%; height: 30px; }
 .fd-del { color: #c3c7cf; background: transparent; border: none; padding: 2px 6px; }
 .fd-del:hover { color: var(--danger); }
@@ -422,35 +421,29 @@ label.settings-row:hover { background: var(--panel); }
 .history-item .m.m-delete { color: var(--m-delete); }
 .history-item .m.m-head, .history-item .m.m-options { color: var(--m-other); }
 
-/* ———— 模态 ———— */
+/* ———— cURL 粘贴导入提醒条 ———— */
 
-.modal-mask { position: fixed; inset: 0; background: rgba(15, 17, 21, 0.35); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.modal {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  width: 640px;
-  max-width: 92vw;
-  padding: 16px;
+.url-bar input.url { flex: 1; }
+.curl-warn {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: var(--shadow);
-}
-.modal h3 { margin: 0; font-size: 14px; }
-.modal textarea { width: 100%; min-height: 200px; font-size: 12px; }
-.modal .actions { display: flex; gap: 8px; justify-content: flex-end; }
-.warn-list {
-  max-height: 140px;
-  overflow: auto;
-  color: #92600a;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 14px;
   background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-bottom: 1px solid #fde68a;
+  color: #92600a;
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.6;
 }
+.curl-warn .cw-title { font-weight: 700; flex: none; }
+.curl-warn .cw-text { flex: 1; min-width: 0; word-break: break-all; }
+.curl-warn .row-del { color: #b98a1c; background: transparent; border: none; padding: 0 4px; flex: none; }
+.curl-warn .row-del:hover { color: #92600a; }
+
+/* ———— icon 按钮 ———— */
+
+.icon-btn { padding: 5px 9px; display: inline-flex; align-items: center; color: var(--text-dim); }
+.icon-btn:hover { color: var(--accent); }
 
 .toast {
   position: fixed;
